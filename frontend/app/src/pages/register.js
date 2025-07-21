@@ -21,24 +21,23 @@ export default function Register() {
       await setDoc(doc(db, "users", res.user.uid), {
         nombre, apellido, email, tipo, bio, uid: res.user.uid
       });
-      alert("Usuario registrado");
     } catch (err) {
       console.error(err);
-      alert("Error al registrar usuario");
+      alert(`Error al registrar usuario: ${err.message}`);
     }
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <input name="nombre" placeholder="Nombre" onChange={handleChange} />
-      <input name="apellido" placeholder="Apellido" onChange={handleChange} />
-      <input name="email" type="email" placeholder="Email" onChange={handleChange} />
-      <input name="password" type="password" placeholder="Contraseña" onChange={handleChange} />
-      <select name="tipo" onChange={handleChange}>
+      <input name="nombre" placeholder="Nombre" value={form.nombre} onChange={handleChange} required />
+      <input name="apellido" placeholder="Apellido" value={form.apellido} onChange={handleChange} required />
+      <input name="email" type="email" placeholder="Email" value={form.email} onChange={handleChange} required />
+      <input name="password" type="password" placeholder="Contraseña" value={form.password} onChange={handleChange} required />
+      <select name="tipo" value={form.tipo} onChange={handleChange} required>
         <option value="particular">Particular</option>
         <option value="empresa">Empresa</option>
       </select>
-      <textarea name="bio" placeholder="Biografía" onChange={handleChange} />
+      <textarea name="bio" placeholder="Biografía" value={form.bio} onChange={handleChange} required />
       <button type="submit">Registrarse</button>
     </form>
   );

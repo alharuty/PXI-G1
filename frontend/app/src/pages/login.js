@@ -13,10 +13,10 @@ export default function Login() {
     e.preventDefault();
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      alert("✅ Inicio de sesión exitoso");
       navigate("/dashboard"); // Redirige a donde quieras
     } catch (err) {
-      alert("❌ Error: " + err.message);
+      console.error("Error al iniciar sesión:", err);
+      alert(`Error al iniciar sesión: ${err.message}`);
     }
   };
 
