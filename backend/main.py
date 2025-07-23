@@ -5,6 +5,10 @@ from services.crypto_utils import CRYPTO_LIST
 from services.alpha_client import get_crypto_price, get_stock_data
 from services.nlp_generator import generate_summary
 import re
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 app = FastAPI()
 
