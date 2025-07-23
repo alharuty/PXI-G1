@@ -1,12 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from services.finnhub_client import get_stock_data
+from services.crypto_utils import CRYPTO_LIST
+from services.alpha_client import get_crypto_price, get_stock_data
 from services.nlp_generator import generate_summary
 import re
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI()
 
@@ -21,28 +19,50 @@ app.add_middleware(
 class PromptRequest(BaseModel):
     prompt: str
     language: str
+    coin_name: str | None = None
 
 def extract_stock_symbol(text: str) -> str | None:
-    # regex simple para buscar símbolos comunes (mayúsculas 1-5 letras)
     match = re.search(r'\b([A-Z]{1,5})\b', text)
     if match:
         return match.group(1)
     return None
 
-@app.post("/generate")
+def get_symbol_from_coin_name(name: str) -> str | None:
+    name = name.lower()
+    for coin in CRYPTO_LIST:
+        if coin["name"].lower() == name:
+            return coin["symbol"].upper()
+    return None
+
+@app.post("/news-nlp")
 def generate(req: PromptRequest):
+    data_chunks = []
+
+    # Buscar símbolo bursátil si lo hay
     symbol = extract_stock_symbol(req.prompt)
-    
+
+    # Buscar símbolo de crypto si se indicó
+    crypto_symbol = None
+    if req.coin_name:
+        crypto_symbol = get_symbol_from_coin_name(req.coin_name)
+        if not crypto_symbol:
+            return {"response": f"Criptomoneda '{req.coin_name}' no encontrada. Asegúrate de escribir el nombre exacto."}
+
+    # Llamadas de datos
     if symbol:
         stock_data = get_stock_data(symbol)
-        if "error" in stock_data:
-            # Si no encontró datos para ese símbolo, solo genera resumen simple
-            resumen = generate_summary(req.prompt, language=req.language)
-        else:
-            texto = f"Datos del símbolo {symbol}: {stock_data}. Consulta: {req.prompt}"
-            resumen = generate_summary(texto, language=req.language)
-    else:
-        # No hay símbolo, se genera resumen directo del prompt
+        if "error" not in stock_data:
+            data_chunks.append(f"Datos de la acción {symbol}: {stock_data}")
+
+    if crypto_symbol:
+        crypto_data = get_crypto_price(crypto_symbol)
+        if "error" not in crypto_data:
+            data_chunks.append(f"Precio de {req.coin_name} ({crypto_symbol}): {crypto_data}")
+
+    if not data_chunks:
         resumen = generate_summary(req.prompt, language=req.language)
+    else:
+        texto = "\n".join(data_chunks)
+        resumen = generate_summary(texto, language=req.language)
 
     return {"response": resumen}
