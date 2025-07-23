@@ -1,5 +1,3 @@
-// src/App.js
-import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./pages/auth";
 import Dashboard from "./pages/dashboard";
@@ -8,6 +6,7 @@ import ImageGenerator from "./pages/ImageGenerator";
 import Profile from "./pages/Profile";
 import { auth } from "./firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
+import PromptForm from "./components/PromptForm";
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
@@ -27,6 +26,7 @@ export default function App() {
         <Route path="/image-generator" element={user ? <ImageGenerator /> : <Navigate to="/" />} />
         <Route path="/profile" element={user ? <Profile /> : <Navigate to="/" />} />
         <Route path="*" element={<Navigate to="/" />} />
+        <Route path="/agente" element={<PromptForm />} />
       </Routes>
     </Router>
   );
