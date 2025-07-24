@@ -18,18 +18,17 @@ export default function TextGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const platforms = [
-    { id: 'twitter', name: 'Twitter', icon: AiOutlineTwitter, maxChars: 280, color: 'text-blue-400' },
-    { id: 'facebook', name: 'Facebook', icon: AiOutlineFacebook, maxChars: 2000, color: 'text-blue-600' },
-    { id: 'linkedin', name: 'LinkedIn', icon: AiOutlineLinkedin, maxChars: 1300, color: 'text-blue-700' },
-    { id: 'email', name: 'Email', icon: AiOutlineMail, maxChars: null, color: 'text-gray-600' },
-    { id: 'instagram', name: 'Instagram', icon: AiOutlineInstagram, maxChars: 2200, color: 'text-pink-500' },
+    { id: 'twitter', name: 'Twitter', icon: AiOutlineTwitter, maxChars: 280, color: 'from-blue-400 to-blue-500' },
+    { id: 'facebook', name: 'Facebook', icon: AiOutlineFacebook, maxChars: 2000, color: 'from-blue-600 to-blue-700' },
+    { id: 'linkedin', name: 'LinkedIn', icon: AiOutlineLinkedin, maxChars: 1300, color: 'from-blue-700 to-blue-800' },
+    { id: 'email', name: 'Email', icon: AiOutlineMail, maxChars: null, color: 'from-gray-600 to-gray-700' },
+    { id: 'instagram', name: 'Instagram', icon: AiOutlineInstagram, maxChars: 2200, color: 'from-pink-500 to-purple-600' },
   ];
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      // Conectando con tu backend real
-      const response = await axios.post('http://localhost:8001/generate', {
+      const response = await axios.post('http://localhost:8000/generate', {
         platform: selectedPlatform,
         topic: prompt,
       });
@@ -42,16 +41,16 @@ export default function TextGenerator() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-900">
       <Navbar />
       
       <div className="max-w-4xl mx-auto py-8 px-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">Generador de Textos</h1>
+        <div className="bg-dark-800 rounded-xl shadow-2xl p-6 border border-dark-700">
+          <h1 className="text-3xl font-bold text-white mb-6">Generador de Textos</h1>
           
           {/* Selector de plataforma */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-300 mb-3">
               Selecciona la plataforma:
             </label>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -63,14 +62,11 @@ export default function TextGenerator() {
                     onClick={() => setSelectedPlatform(platform.id)}
                     className={`p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
                       selectedPlatform === platform.id
-                        ? 'border-primary-100 bg-primary-100 text-white shadow-lg'
-                        : 'border-gray-300 hover:border-primary-200 bg-white'
+                        ? 'border-primary-100 bg-gradient-to-br from-primary-100 to-primary-200 text-white shadow-lg'
+                        : 'border-dark-600 bg-dark-700 hover:border-primary-200 text-gray-300 hover:text-white'
                     }`}
                   >
-                    <Icon 
-                      className={`mx-auto mb-2 ${selectedPlatform === platform.id ? 'text-white' : platform.color}`} 
-                      size={24} 
-                    />
+                    <Icon className="mx-auto mb-2" size={24} />
                     <div className="text-sm font-medium">{platform.name}</div>
                     {platform.maxChars && (
                       <div className="text-xs opacity-70 mt-1">
@@ -85,14 +81,14 @@ export default function TextGenerator() {
 
           {/* Input del prompt */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Describe el contenido que quieres crear:
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ej: Un post sobre los beneficios del ejercicio matutino, tono motivacional..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-100 focus:border-transparent"
+              className="w-full p-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-100 focus:border-transparent"
               rows="4"
             />
           </div>
@@ -101,10 +97,10 @@ export default function TextGenerator() {
           <button
             onClick={handleGenerate}
             disabled={!prompt.trim() || isGenerating}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-colors ${
+            className={`w-full py-3 px-6 rounded-lg font-medium transition-all ${
               !prompt.trim() || isGenerating
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-primary-100 hover:bg-primary-200 text-white'
+                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                : 'bg-gradient-to-r from-primary-100 to-primary-200 hover:from-primary-200 hover:to-primary-100 text-white shadow-lg'
             }`}
           >
             {isGenerating ? 'Generando...' : 'Generar Texto'}
@@ -112,9 +108,9 @@ export default function TextGenerator() {
 
           {/* Resultado */}
           {generatedText && (
-            <div className="mt-6 p-4 bg-primary-50 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Texto Generado:</h3>
-              <div className="whitespace-pre-wrap text-gray-700 bg-white p-4 rounded border">
+            <div className="mt-6 p-4 bg-dark-700 rounded-lg border border-dark-600">
+              <h3 className="text-lg font-medium text-white mb-2">Texto Generado:</h3>
+              <div className="whitespace-pre-wrap text-gray-300 bg-dark-900 p-4 rounded border border-dark-600">
                 {generatedText}
               </div>
               <div className="mt-3 flex space-x-3">
@@ -127,7 +123,7 @@ export default function TextGenerator() {
                 </button>
                 <button
                   onClick={() => setGeneratedText('')}
-                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
                 >
                   <AiOutlineClear className="mr-2" size={16} />
                   Limpiar

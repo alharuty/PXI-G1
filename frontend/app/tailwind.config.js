@@ -11,6 +11,12 @@ module.exports = {
           200: '#0081A7',
           300: '#FED9B7',
           400: '#F07167',
+        },
+        dark: {
+          900: '#0f172a', // Muy oscuro
+          800: '#1e293b', // Oscuro
+          700: '#334155', // Medio oscuro
+          600: '#475569', // Gris oscuro
         }
       },
       fontFamily: {

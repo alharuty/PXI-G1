@@ -11,43 +11,45 @@ export default function AuthPage() {
 
   if (loading)
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-dark-900 to-dark-800 flex items-center justify-center">
         <div className="text-white text-xl">Cargando...</div>
       </div>
     );
   if (user) return <Navigate to="/dashboard" />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-primary-200 flex items-center justify-center p-4">
+      <div className="bg-dark-800 rounded-2xl shadow-2xl p-8 w-full max-w-md border border-dark-700">
         <div className="text-center mb-8">
           {/* Logo en la página de auth */}
-          <img
-            src="/buddylog.png"
-            alt="AI Creator Logo"
-            className="h-16 w-16 mx-auto mb-4 object-contain"
-          />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Creator</h1>
-          <p className="text-gray-600 font-medium">Tu plataforma de creación con IA</p>
+          <div className="w-20 h-20 bg-gradient-to-br from-primary-100 to-primary-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <img
+              src="/buddylog.png"
+              alt="AI Creator Logo"
+              className="h-12 w-12 object-contain"
+            />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">AI Creator</h1>
+          <p className="text-gray-400 font-medium">Tu plataforma de creación con IA</p>
         </div>
 
-        <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
+        <div className="flex mb-6 bg-dark-700 rounded-xl p-1">
           <button
             onClick={() => setMode("login")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
               mode === "login"
-                ? "bg-white text-primary-200 shadow"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-primary-100 text-white shadow-lg"
+                : "text-gray-400 hover:text-white"
             }`}
           >
             Iniciar Sesión
           </button>
           <button
             onClick={() => setMode("register")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-lg text-sm font-semibold transition-all ${
               mode === "register"
-                ? "bg-white text-primary-200 shadow"
-                : "text-gray-600 hover:text-gray-900"
+                ? "bg-primary-100 text-white shadow-lg"
+                : "text-gray-400 hover:text-white"
             }`}
           >
             Crear Cuenta
