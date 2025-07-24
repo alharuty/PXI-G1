@@ -44,7 +44,7 @@ function PromptForm() {
     setIsLoading(true);
     try {
       // Usando el endpoint del backend/app/main.py
-      const res = await axios.post('http://localhost:8000/generate', {
+      const res = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/generate`, {
         platform: 'twitter', // Puedes hacer esto dinámico
         topic: prompt,
       });
