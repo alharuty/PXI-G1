@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException  # <-- Importo HTTPException para manejo de errores en endpoints
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from services.crypto_utils import CRYPTO_LIST
@@ -7,6 +7,7 @@ from services.nlp_generator import generate_summary
 import re
 from dotenv import load_dotenv
 import os
+import requests
 
 load_dotenv()
 
@@ -70,3 +71,55 @@ def generate(req: PromptRequest):
         resumen = generate_summary(texto, language=req.language)
 
     return {"response": resumen}
+
+
+# =============================
+# Endpoint GET para traer la última imagen generada
+# =============================
+@app.get("/last-image")
+def get_last_image():
+    """
+    Obtiene la última imagen generada desde el microservicio de imágenes.
+    FRONTEND: Debe llamar a este endpoint para obtener el nombre o URL de la última imagen generada.
+    DEVUELVE: {"filename": <nombre o url de la imagen>}
+    USO: El frontend debe construir la URL pública si solo se devuelve el nombre.
+    """
+    try:
+        url = "http://localhost:8000/historial"  # <-- El microservicio de imágenes debe exponer este endpoint
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            imagenes = data.get("imagenes", [])
+            if not imagenes:
+                raise HTTPException(status_code=404, detail="No hay imágenes generadas.")  # <-- Si no hay imágenes, se devuelve un error 404
+            last_image = imagenes[0]  # <-- Aquí se obtiene el nombre o URL de la última imagen generada
+            # <-- OPCIONAL: Si tienes la URL pública en Supabase, devuélvela aquí en vez del nombre
+            return {"filename": last_image}  # <-- El frontend debe usar este valor para mostrar la imagen
+        else:
+            raise HTTPException(status_code=response.status_code, detail=response.text)  # <-- Si el microservicio responde con error, se propaga el error
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))  # <-- Si ocurre cualquier excepción, se devuelve error 500
+    
+    
+    
+    
+    #==========================================================================
+    ###"DESCOMENTAR SI SE REQUIERE"###
+    #==========================================================================
+## Nuevo endpoint para generar imagen usando el microservicio de imágenes
+# @app.post("/generate-image")
+# async def generate_image(request: Request):
+#     """
+#     Recibe los datos necesarios para generar una imagen y llama al microservicio de imágenes.
+#     """
+#     try:
+#         payload = await request.json()
+#         # Cambia la URL si el microservicio corre en otro puerto o ruta
+#         url = "http://localhost:8000/generar_imagen"
+#         response = requests.post(url, json=payload)
+#         if response.status_code == 200:
+#             return response.json()
+#         else:
+#             raise HTTPException(status_code=response.status_code, detail=response.text)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))

@@ -68,6 +68,6 @@ pip freeze > requirements.txt
 #######################################################
 # 5. EJECUTAR BACKEND (FASTAPI)
 #######################################################
-# Desde la carpeta donde está main.py (por ejemplo, backend):
-uvicorn main:app --reload
+# EJECUTAR DESDE RAIZ
+uvicorn backend.model_images.images_services:app --reload
 # Inicia el servidor backend en modo desarrollo. El parámetro --reload recarga el servidor al hacer cambios en el código.
