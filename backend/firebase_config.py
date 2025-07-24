@@ -19,8 +19,6 @@ firebase_credentials = {
     "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN"),
 }
 
-#print(firebase_credentials["private_key"])
-
 if not firebase_admin._apps:
     cred = credentials.Certificate(firebase_credentials)
     firebase_admin.initialize_app(cred)
