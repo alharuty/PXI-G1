@@ -7,6 +7,8 @@ from services.nlp_generator import generate_summary
 import re
 from dotenv import load_dotenv
 import os
+from models.prompt import PromptRequest
+from services.utils import extract_stock_symbol, get_symbol_from_coin_name
 
 load_dotenv()
 
@@ -19,24 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-class PromptRequest(BaseModel):
-    prompt: str
-    language: str
-    coin_name: str | None = None
-
-def extract_stock_symbol(text: str) -> str | None:
-    match = re.search(r'\b([A-Z]{1,5})\b', text)
-    if match:
-        return match.group(1)
-    return None
-
-def get_symbol_from_coin_name(name: str) -> str | None:
-    name = name.lower()
-    for coin in CRYPTO_LIST:
-        if coin["name"].lower() == name:
-            return coin["symbol"].upper()
-    return None
 
 @app.post("/news-nlp")
 def generate(req: PromptRequest):
