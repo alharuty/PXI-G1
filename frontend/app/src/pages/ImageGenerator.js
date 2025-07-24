@@ -15,10 +15,10 @@ export default function ImageGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const styles = [
-    { id: 'realistic', name: 'Realista', description: 'Imágenes fotorrealistas' },
-    { id: 'artistic', name: 'Artístico', description: 'Estilo artístico y creativo' },
-    { id: 'cartoon', name: 'Cartoon', description: 'Estilo de dibujo animado' },
-    { id: 'abstract', name: 'Abstracto', description: 'Arte abstracto y conceptual' },
+    { id: 'realistic', name: 'Realista', description: 'Imágenes fotorrealistas', color: 'from-primary-100 to-primary-200' },
+    { id: 'artistic', name: 'Artístico', description: 'Estilo artístico y creativo', color: 'from-primary-300 to-primary-400' },
+    { id: 'cartoon', name: 'Cartoon', description: 'Estilo de dibujo animado', color: 'from-purple-500 to-pink-500' },
+    { id: 'abstract', name: 'Abstracto', description: 'Arte abstracto y conceptual', color: 'from-primary-200 to-primary-100' },
   ];
 
   const sizes = [
@@ -39,26 +39,28 @@ export default function ImageGenerator() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-900">
       <Navbar />
       
       <div className="max-w-4xl mx-auto py-8 px-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-dark-800 rounded-xl shadow-2xl p-6 border border-dark-700">
           <div className="flex items-center mb-6">
-            <AiOutlineCamera className="text-primary-100 mr-3" size={32} />
-            <h1 className="text-3xl font-bold text-gray-900">Generador de Imágenes</h1>
+            <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center mr-4">
+              <AiOutlineCamera className="text-white" size={24} />
+            </div>
+            <h1 className="text-3xl font-bold text-white">Generador de Imágenes</h1>
           </div>
           
           {/* Input del prompt */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
               Describe la imagen que quieres crear:
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Ej: Un paisaje montañoso al atardecer con un lago cristalino..."
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-100 focus:border-transparent"
+              className="w-full p-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-100 focus:border-transparent"
               rows="3"
             />
           </div>
@@ -66,23 +68,27 @@ export default function ImageGenerator() {
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             {/* Selector de estilo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
                 Estilo de imagen:
               </label>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {styles.map((styleOption) => (
-                  <label key={styleOption.id} className="flex items-center cursor-pointer">
+                  <label key={styleOption.id} className="flex items-center cursor-pointer group">
                     <input
                       type="radio"
                       name="style"
                       value={styleOption.id}
                       checked={style === styleOption.id}
                       onChange={(e) => setStyle(e.target.value)}
-                      className="mr-3 text-primary-100 focus:ring-primary-100"
+                      className="mr-3 text-primary-100 focus:ring-primary-100 bg-dark-700 border-dark-600"
                     />
-                    <div>
+                    <div className={`flex-1 p-3 rounded-lg border transition-all ${
+                      style === styleOption.id 
+                        ? 'border-primary-100 bg-gradient-to-r ' + styleOption.color + ' text-white'
+                        : 'border-dark-600 bg-dark-700 text-gray-300 group-hover:border-primary-200'
+                    }`}>
                       <div className="font-medium">{styleOption.name}</div>
-                      <div className="text-sm text-gray-500">{styleOption.description}</div>
+                      <div className="text-sm opacity-70">{styleOption.description}</div>
                     </div>
                   </label>
                 ))}
@@ -91,23 +97,27 @@ export default function ImageGenerator() {
 
             {/* Selector de tamaño */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-300 mb-3">
                 Tamaño de imagen:
               </label>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {sizes.map((sizeOption) => (
-                  <label key={sizeOption.id} className="flex items-center cursor-pointer">
+                  <label key={sizeOption.id} className="flex items-center cursor-pointer group">
                     <input
                       type="radio"
                       name="size"
                       value={sizeOption.id}
                       checked={size === sizeOption.id}
                       onChange={(e) => setSize(e.target.value)}
-                      className="mr-3 text-primary-100 focus:ring-primary-100"
+                      className="mr-3 text-primary-100 focus:ring-primary-100 bg-dark-700 border-dark-600"
                     />
-                    <div>
+                    <div className={`flex-1 p-3 rounded-lg border transition-all ${
+                      size === sizeOption.id 
+                        ? 'border-primary-100 bg-primary-100 text-white'
+                        : 'border-dark-600 bg-dark-700 text-gray-300 group-hover:border-primary-200'
+                    }`}>
                       <div className="font-medium">{sizeOption.name}</div>
-                      <div className="text-sm text-gray-500">{sizeOption.description}</div>
+                      <div className="text-sm opacity-70">{sizeOption.description}</div>
                     </div>
                   </label>
                 ))}
@@ -119,10 +129,10 @@ export default function ImageGenerator() {
           <button
             onClick={handleGenerate}
             disabled={!prompt.trim() || isGenerating}
-            className={`w-full py-3 px-6 rounded-lg font-medium transition-colors flex items-center justify-center ${
+            className={`w-full py-3 px-6 rounded-lg font-medium transition-all flex items-center justify-center ${
               !prompt.trim() || isGenerating
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-primary-100 hover:bg-primary-200 text-white'
+                ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                : 'bg-gradient-to-r from-primary-100 to-primary-200 hover:from-primary-200 hover:to-primary-100 text-white shadow-lg transform hover:scale-105'
             }`}
           >
             <AiOutlinePicture className="mr-2" size={20} />
@@ -132,12 +142,12 @@ export default function ImageGenerator() {
           {/* Resultado */}
           {generatedImage && (
             <div className="mt-6 text-center">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Imagen Generada:</h3>
-              <div className="inline-block p-4 bg-gray-100 rounded-lg">
+              <h3 className="text-lg font-medium text-white mb-4">Imagen Generada:</h3>
+              <div className="inline-block p-4 bg-dark-700 rounded-lg border border-dark-600">
                 <img
                   src={generatedImage}
                   alt="Imagen generada"
-                  className="max-w-full h-auto rounded"
+                  className="max-w-full h-auto rounded shadow-lg"
                 />
               </div>
               <div className="mt-4 flex justify-center space-x-3">
@@ -148,14 +158,14 @@ export default function ImageGenerator() {
                     link.download = 'imagen-generada.png';
                     link.click();
                   }}
-                  className="flex items-center px-4 py-2 bg-primary-100 text-white rounded hover:bg-primary-200 transition-colors"
+                  className="flex items-center px-4 py-2 bg-primary-100 text-white rounded hover:bg-primary-200 transition-colors shadow-md"
                 >
                   <AiOutlineDownload className="mr-2" size={16} />
                   Descargar
                 </button>
                 <button
                   onClick={() => setGeneratedImage('')}
-                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
                 >
                   <AiOutlineClear className="mr-2" size={16} />
                   Limpiar
