@@ -21,14 +21,20 @@ export default function AuthPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-200 to-primary-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
+          {/* Logo en la página de auth */}
+          <img
+            src="/buddylog.png"
+            alt="AI Creator Logo"
+            className="h-16 w-16 mx-auto mb-4 object-contain"
+          />
           <h1 className="text-3xl font-bold text-gray-900 mb-2">AI Creator</h1>
-          <p className="text-gray-600">Tu plataforma de creación con IA</p>
+          <p className="text-gray-600 font-medium">Tu plataforma de creación con IA</p>
         </div>
 
         <div className="flex mb-6 bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setMode("login")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
               mode === "login"
                 ? "bg-white text-primary-200 shadow"
                 : "text-gray-600 hover:text-gray-900"
@@ -38,7 +44,7 @@ export default function AuthPage() {
           </button>
           <button
             onClick={() => setMode("register")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
               mode === "register"
                 ? "bg-white text-primary-200 shadow"
                 : "text-gray-600 hover:text-gray-900"

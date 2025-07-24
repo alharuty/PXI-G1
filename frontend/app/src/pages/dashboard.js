@@ -43,7 +43,7 @@ export default function Dashboard() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Bienvenido a AI Creator
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-xl text-gray-600 font-medium">
             Tu plataforma de creación de contenido con inteligencia artificial
           </p>
         </div>
@@ -60,8 +60,8 @@ export default function Dashboard() {
                 <div className={`w-16 h-16 ${feature.color} rounded-full flex items-center justify-center text-2xl mb-4`}>
                   <Icon className="text-white" size={28} />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
+                <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+                <p className="text-gray-600 font-medium">{feature.description}</p>
               </div>
             );
           })}

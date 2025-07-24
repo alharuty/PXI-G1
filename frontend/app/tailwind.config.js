@@ -1,4 +1,3 @@
-
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
@@ -13,6 +12,9 @@ module.exports = {
           300: '#FED9B7',
           400: '#F07167',
         }
+      },
+      fontFamily: {
+        'sans': ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       }
     },
   },
