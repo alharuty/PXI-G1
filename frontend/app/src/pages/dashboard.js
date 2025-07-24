@@ -194,22 +194,22 @@ export default function Dashboard() {
               <h4 className="text-lg font-semibold text-white mb-4">Soporte</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <a href="/help-center" className="text-gray-400 hover:text-primary-100 transition-colors">
                     Centro de Ayuda
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <a href="/terms-of-service" className="text-gray-400 hover:text-primary-100 transition-colors">
                     Términos de Servicio
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <a href="/privacy-policy" className="text-gray-400 hover:text-primary-100 transition-colors">
                     Política de Privacidad
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <a href="/contact" className="text-gray-400 hover:text-primary-100 transition-colors">
                     Contacto
                   </a>
                 </li>
