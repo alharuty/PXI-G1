@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from services.crypto_utils import CRYPTO_LIST
@@ -7,6 +7,9 @@ from services.nlp_generator import generate_summary
 import re
 from dotenv import load_dotenv
 import os
+from models.prompt import PromptRequest
+from services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from firebase_config import db
 
 load_dotenv()
 
@@ -20,39 +23,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class PromptRequest(BaseModel):
-    prompt: str
-    language: str
-    coin_name: str | None = None
-
-def extract_stock_symbol(text: str) -> str | None:
-    match = re.search(r'\b([A-Z]{1,5})\b', text)
-    if match:
-        return match.group(1)
-    return None
-
-def get_symbol_from_coin_name(name: str) -> str | None:
-    name = name.lower()
-    for coin in CRYPTO_LIST:
-        if coin["name"].lower() == name:
-            return coin["symbol"].upper()
-    return None
+UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 @app.post("/news-nlp")
 def generate(req: PromptRequest):
     data_chunks = []
+    user_bio = ""
 
-    # Buscar símbolo bursátil si lo hay
+    if req.uid:
+        if not UID_REGEX.match(req.uid):
+            raise HTTPException(status_code=400, detail="UID inválido.")
+        
+        doc_ref = db.collection("users").document(req.uid)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+        
+        user_data = doc.to_dict()
+        user_bio = user_data.get("bio", "")
+
+    # Detectar símbolo de acción
     symbol = extract_stock_symbol(req.prompt)
 
-    # Buscar símbolo de crypto si se indicó
+    # Buscar símbolo de criptomoneda si se indicó
     crypto_symbol = None
     if req.coin_name:
         crypto_symbol = get_symbol_from_coin_name(req.coin_name)
         if not crypto_symbol:
             return {"response": f"Criptomoneda '{req.coin_name}' no encontrada. Asegúrate de escribir el nombre exacto."}
 
-    # Llamadas de datos
+    # Obtener datos financieros
     if symbol:
         stock_data = get_stock_data(symbol)
         if "error" not in stock_data:
@@ -63,10 +64,14 @@ def generate(req: PromptRequest):
         if "error" not in crypto_data:
             data_chunks.append(f"Precio de {req.coin_name} ({crypto_symbol}): {crypto_data}")
 
-    if not data_chunks:
-        resumen = generate_summary(req.prompt, language=req.language)
+    # Construir contexto para el resumen
+    context = "\n".join(data_chunks) if data_chunks else req.prompt
+
+    if user_bio:
+        full_context = f"Este es el contexto del usuario: {user_bio}\n\nAhora responde a su solicitud:\n\n{context}"
     else:
-        texto = "\n".join(data_chunks)
-        resumen = generate_summary(texto, language=req.language)
+        full_context = context
+
+    resumen = generate_summary(full_context, language=req.language)
 
     return {"response": resumen}
