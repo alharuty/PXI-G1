@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 from models.prompt import PromptRequest
 from services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from firebase_config import db
 
 load_dotenv()
 
@@ -26,7 +27,13 @@ app.add_middleware(
 def generate(req: PromptRequest):
     data_chunks = []
 
-    # Buscar símbolo bursátil si lo hay
+    user_bio = ""
+    if req.uid:
+        doc_ref = db.collection("users").document(req.uid)
+        doc = doc_ref.get()
+        if doc.exists:
+            user_data = doc.to_dict()
+            user_bio = user_data.get("bio", "")
     symbol = extract_stock_symbol(req.prompt)
 
     # Buscar símbolo de crypto si se indicó
@@ -47,10 +54,18 @@ def generate(req: PromptRequest):
         if "error" not in crypto_data:
             data_chunks.append(f"Precio de {req.coin_name} ({crypto_symbol}): {crypto_data}")
 
+    # Combinamos datos + bio + prompt
     if not data_chunks:
-        resumen = generate_summary(req.prompt, language=req.language)
+        context = req.prompt
     else:
-        texto = "\n".join(data_chunks)
-        resumen = generate_summary(texto, language=req.language)
+        context = "\n".join(data_chunks)
+
+    # Incluimos bio como contexto del usuario
+    if user_bio:
+        full_context = f"Este es el contexto del usuario: {user_bio}\n\nAhora responde a su solicitud:\n\n{context}"
+    else:
+        full_context = context
+
+    resumen = generate_summary(full_context, language=req.language)
 
     return {"response": resumen}
