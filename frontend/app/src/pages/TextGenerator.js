@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
+import axios from 'axios';
 import { 
   AiOutlineTwitter, 
   AiOutlineFacebook, 
@@ -26,15 +27,18 @@ export default function TextGenerator() {
 
   const handleGenerate = async () => {
     setIsGenerating(true);
-    // Simulación del LLM (aquí conectarías tu API)
-    setTimeout(() => {
-      setGeneratedText(
-        `Texto generado para ${platforms.find(p => p.id === selectedPlatform)?.name}:\n\n` +
-        `Este es un ejemplo de contenido creado basado en: "${prompt}". ` +
-        `Optimizado para la plataforma seleccionada con el tono y formato apropiado.`
-      );
-      setIsGenerating(false);
-    }, 2000);
+    try {
+      // Conectando con tu backend real
+      const response = await axios.post('http://localhost:8001/generate', {
+        platform: selectedPlatform,
+        topic: prompt,
+      });
+      setGeneratedText(response.data.content);
+    } catch (error) {
+      console.error('Error generating text:', error);
+      setGeneratedText('Error al generar el texto. Por favor, intenta nuevamente.');
+    }
+    setIsGenerating(false);
   };
 
   return (
