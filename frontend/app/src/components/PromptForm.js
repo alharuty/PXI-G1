@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import Navbar from './Navbar';
+import { auth } from "../firebase";
 
 function PromptForm() {
   const [prompt, setPrompt] = useState('');
@@ -14,10 +15,14 @@ function PromptForm() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      const user = auth.currentUser;
+      const uid = user?.uid || null;
+
       const res = await axios.post('http://localhost:8000/news-nlp', {
         prompt,
         language,
         coin_name: coinName || null,
+        uid: uid,
       });
       setResponse(res.data.response);
     } catch (error) {
