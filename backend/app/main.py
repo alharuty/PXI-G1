@@ -15,3 +15,5 @@ def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq",
         return GenerationResponse(content=content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+    
