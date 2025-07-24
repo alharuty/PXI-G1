@@ -1,11 +1,10 @@
-// src/App.js
-import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./pages/auth";
 import Dashboard from "./pages/dashboard";
 import TextGenerator from "./pages/TextGenerator";
 import ImageGenerator from "./pages/ImageGenerator";
 import Profile from "./pages/Profile";
+import PromptForm from "./components/PromptForm";
 import { auth } from "./firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
 
@@ -26,6 +25,7 @@ export default function App() {
         <Route path="/text-generator" element={user ? <TextGenerator /> : <Navigate to="/" />} />
         <Route path="/image-generator" element={user ? <ImageGenerator /> : <Navigate to="/" />} />
         <Route path="/profile" element={user ? <Profile /> : <Navigate to="/" />} />
+        <Route path="/ai-services" element={user ? <PromptForm /> : <Navigate to="/" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
