@@ -28,7 +28,7 @@ export default function TextGenerator() {
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const response = await axios.post('http://localhost:8000/generate', {
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/generate`, {
         platform: selectedPlatform,
         topic: prompt,
       });
