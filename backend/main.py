@@ -8,7 +8,7 @@ from app.models import (
 )
 from app.agents import generate_content
 from app.arXiv import ArxivExtractor
-from app.huggingface_embedding import SimpleHuggingFaceStore
+from app.vector_store_config import create_vector_store, get_storage_status
 from app.rag_generator import RAGGenerator
 from dotenv import load_dotenv
 import os
@@ -26,11 +26,26 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 FastAPI application starting...")
     print("📚 Available endpoints:")
-    print("   - POST /generate - content generation")
-    print("   - POST /arxiv/search - article search (POST)")
-    print("   - GET /arxiv/search - article search (GET)")
-    print("   - POST /rag/generate - RAG generation with Groq")
-    print("   - GET /rag/compare - Compare RAG vs simple generation")
+    print("   🔧 Core endpoints:")
+    print("     - GET / - Root endpoint")
+    print("     - GET /health - Health check")
+    print("   📄 Content generation:")
+    print("     - POST /generate - Content generation with Groq/Ollama")
+    print("   🔍 ArXiv search:")
+    print("     - GET /arxiv/search - Search articles on ArXiv")
+    print("   🗄️ Vector storage:")
+    print("     - POST /vector/add_articles_from_search - Add articles to vector DB")
+    print("     - GET /vector/search - Search in vector database")
+    print("     - GET /vector/statistics - Get vector DB statistics & config")
+    print("     - DELETE /vector/clear - Clear vector database")
+    print("   🤖 RAG system:")
+    print("     - POST /rag/generate - Generate RAG response")
+    print("     - GET /rag/compare - Compare RAG vs simple generation")
+    print("     - GET /rag/analyze_documents - Analyze retrieved documents")
+    print("   📊 Storage types supported:")
+    print("     - Local file-based (default)")
+    print("     - Qdrant local (Docker)")
+    print("     - Qdrant cloud (cloud.qdrant.io)")
     print("📖 Swagger documentation: http://localhost:8001/docs")
     print("✅ Application ready to work!")
     
@@ -40,12 +55,20 @@ async def lifespan(app: FastAPI):
     print("🛑 Application stopping...")
 
 app = FastAPI(title="AI Content Generator", lifespan=lifespan)
-# Vector database (simple solution without LlamaIndex with fragmentation)
-vector_store = SimpleHuggingFaceStore(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    chunk_size=512,  # Fragment size
-    chunk_overlap=50  # Overlap between fragments
-)
+# Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
+try:
+    vector_store = create_vector_store()
+    storage_status = get_storage_status()
+    print(f"✅ Using {storage_status['current_storage']} storage")
+except Exception as e:
+    print(f"❌ Error creating vector store: {e}")
+    print("🔄 Falling back to local storage")
+    from app.local_vector_store import SimpleHuggingFaceStore
+    vector_store = SimpleHuggingFaceStore(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        chunk_size=512,
+        chunk_overlap=50
+    )
 
 # RAG generator
 groq_api_key = os.getenv("GROQ_API_KEY")
@@ -296,17 +319,21 @@ def search_vector_store(
 @app.get("/vector/statistics")
 def get_vector_store_statistics():
     """
-    Returns vector database statistics
+    Returns vector database statistics and storage configuration
     
     Returns:
-        Vector database statistics
+        Vector database statistics and storage config
     """
     print("📊 Getting vector database statistics...")
     
     try:
         stats = vector_store.get_statistics()
+        storage_status = get_storage_status()
         print(f"✅ Statistics received: {stats.get('total_documents', 0)} documents")
-        return stats
+        return {
+            "statistics": stats,
+            "storage_config": storage_status
+        }
     except Exception as e:
         print(f"❌ Error getting statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting statistics: {str(e)}")
