@@ -250,7 +250,7 @@ async def generate_image(req: ImagenRequest):
         
         # Crear nombre único
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        tema_safe = req.tema.replace(' ', '_').replace('/', '_')[:30]
+        tema_safe = sanitize_filename(req.tema)
         nombre_archivo = f"{timestamp}_{tema_safe}.png"
         
         # Guardar localmente
