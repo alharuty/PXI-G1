@@ -1,5 +1,5 @@
 import uvicorn
-from images_services import app
+from .images_services import app
 
 if __name__ == "__main__":
     print("🚀 Iniciando Microservicio de Generación de Imágenes...")
