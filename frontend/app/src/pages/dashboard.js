@@ -50,6 +50,19 @@ export default function Dashboard() {
     }
   ];
 
+  const handleSocialClick = (platform) => {
+    // Aquí puedes agregar las URLs reales cuando las tengas
+    const urls = {
+      twitter: 'https://twitter.com/buddy_ai',
+      github: 'https://github.com/buddy-ai',
+      email: 'mailto:contact@buddy-ai.com'
+    };
+    
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
       <Navbar />
@@ -126,27 +139,27 @@ export default function Dashboard() {
                 Genera textos, imágenes y análisis financieros de forma rápida y eficiente.
               </p>
               <div className="flex space-x-4">
-                <a 
-                  href="#" 
+                <button 
+                  onClick={() => handleSocialClick('twitter')}
                   className="text-gray-400 hover:text-primary-100 transition-colors"
                   aria-label="Twitter"
                 >
                   <AiOutlineTwitter size={20} />
-                </a>
-                <a 
-                  href="#" 
+                </button>
+                <button 
+                  onClick={() => handleSocialClick('github')}
                   className="text-gray-400 hover:text-primary-100 transition-colors"
                   aria-label="GitHub"
                 >
                   <AiOutlineGithub size={20} />
-                </a>
-                <a 
-                  href="#" 
+                </button>
+                <button 
+                  onClick={() => handleSocialClick('email')}
                   className="text-gray-400 hover:text-primary-100 transition-colors"
                   aria-label="Email"
                 >
                   <AiOutlineMail size={20} />
-                </a>
+                </button>
               </div>
             </div>
 
@@ -194,24 +207,36 @@ export default function Dashboard() {
               <h4 className="text-lg font-semibold text-white mb-4">Soporte</h4>
               <ul className="space-y-2">
                 <li>
-                  <a href="/help-center" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <button 
+                    onClick={() => console.log('Centro de Ayuda')}
+                    className="text-gray-400 hover:text-primary-100 transition-colors"
+                  >
                     Centro de Ayuda
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="/terms-of-service" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <button 
+                    onClick={() => console.log('Términos de Servicio')}
+                    className="text-gray-400 hover:text-primary-100 transition-colors"
+                  >
                     Términos de Servicio
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="/privacy-policy" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <button 
+                    onClick={() => console.log('Política de Privacidad')}
+                    className="text-gray-400 hover:text-primary-100 transition-colors"
+                  >
                     Política de Privacidad
-                  </a>
+                  </button>
                 </li>
                 <li>
-                  <a href="/contact" className="text-gray-400 hover:text-primary-100 transition-colors">
+                  <button 
+                    onClick={() => console.log('Contacto')}
+                    className="text-gray-400 hover:text-primary-100 transition-colors"
+                  >
                     Contacto
-                  </a>
+                  </button>
                 </li>
               </ul>
             </div>
