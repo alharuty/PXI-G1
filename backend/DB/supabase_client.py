@@ -7,4 +7,9 @@ load_dotenv()
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 
-supabase: Client = create_client(url, key)
+if url and key:
+    supabase: Client = create_client(url, key)
+    print("✅ Supabase conectado")
+else:
+    supabase = None
+    print("⚠️ Supabase no configurado")
