@@ -592,10 +592,6 @@ def analyze_retrieved_documents(
         print(f"❌ Document analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Document analysis error: {str(e)}")
 
-if __name__ == "__main__":
-    import uvicorn
-    print("🚀 Starting AI Content Generator API...")
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
 
 @app.post("/news-nlp")
@@ -697,3 +693,9 @@ async def generate_image(request: Request):
             raise HTTPException(status_code=response.status_code, detail=response.text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 Starting AI Content Generator API...")
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
