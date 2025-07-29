@@ -14,6 +14,7 @@ import re
 import time
 import random
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
+from time import time as time_now
 
 # Importaciones del proyecto
 from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
@@ -30,7 +31,7 @@ from services.img_generation_functions import (
     subir_imagen_a_supabase
 )
 from app.models import GenerationRequest, GenerationResponse
-from app.agents import generate_content
+from app.agents import generate_content as generate_content_agent
 from DB.supabase_client import supabase
 
 load_dotenv()
@@ -48,9 +49,9 @@ app = FastAPI(
 # ⭐ CONFIGURACIÓN CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Ambas URLs
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Métodos específicos
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -138,9 +139,12 @@ async def generate_simple(req: SimpleGenerationRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
+
 @app.post("/news-nlp")
 def generate_news_nlp(req: PromptRequest):
     """Endpoint para generar resúmenes de noticias financieras"""
+    start_time = time_now()
+    
     try:
         data_chunks = []
         user_bio = ""
@@ -182,11 +186,68 @@ def generate_news_nlp(req: PromptRequest):
             full_context = context
 
         resumen = generate_summary(full_context, language=req.language)
+        
+        # Calcular tiempo de ejecución
+        execution_time = round(time_now() - start_time, 2)
+
+        # Guardar en trazabilidad
+        if supabase:
+            try:
+                supabase.table("Trazabilidad").insert({
+                    "User_id": req.uid if req.uid else None,
+                    "used_model": "groq",
+                    "Prompt": req.prompt,
+                    "Language": req.language,
+                    "Output": resumen,
+                    "Execution_time": execution_time
+                }).execute()
+                print("📊 Registro de trazabilidad guardado en Supabase")
+            except Exception as e:
+                print(f"❌ Error guardando trazabilidad en Supabase: {e}")
+
         return {"response": resumen}
         
     except Exception as e:
         print(f"Error en news-nlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate")
+async def generate_simple_content(request: dict):
+    """
+    Endpoint simplificado para generar contenido de texto
+    Compatible con el frontend TextGenerator.js
+    """
+    try:
+        platform = request.get('platform', 'twitter')
+        topic = request.get('topic', '')
+        language = request.get('language', 'es')
+        
+        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
+        
+        # Validaciones básicas
+        if not topic or not topic.strip():
+            raise HTTPException(status_code=400, detail="Topic es requerido")
+        
+        if not platform:
+            raise HTTPException(status_code=400, detail="Platform es requerida")
+        
+        # Generar contenido usando el sistema de agentes
+        content = generate_content_agent(
+            platform=platform,
+            topic=topic,
+            language=language,
+            provider="groq"
+        )
+        
+        return {"content": content}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"💥 Error generando contenido: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
