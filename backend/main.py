@@ -61,94 +61,14 @@ HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
-# =============================
-# MODELOS AUXILIARES
-# =============================
-
-class SimpleGenerationRequest(BaseModel):
-    platform: str
-    topic: str
-    language: str = "es"
-    uid: str = None
-
-# =============================
-# ENDPOINTS PRINCIPALES
-# =============================
-
-@app.post("/generate")
-async def generate_simple(req: SimpleGenerationRequest):
-    """
-    Endpoint simplificado para generar contenido de texto
-    Compatible con el frontend TextGenerator.js
-    """
-    try:
-        print(f"🎯 Solicitud de generación: {req.platform} | {req.topic} | {req.language}")
-        
-        # Validaciones básicas
-        if not req.topic or not req.topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not req.platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Obtener contexto del usuario si está disponible
-        user_bio = ""
-        if req.uid and db is not None:
-            try:
-                if UID_REGEX.match(req.uid):
-                    doc_ref = db.collection("users").document(req.uid)
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        user_data = doc.to_dict()
-                        user_bio = user_data.get("bio", "")
-            except Exception as e:
-                print(f"⚠️ Error accediendo a Firebase: {e}")
-        
-        # Agregar contexto del usuario si existe
-        topic_with_context = req.topic
-        if user_bio:
-            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {req.topic}"
-        
-        # Generar contenido usando el sistema de agentes
-        content = generate_content(
-            platform=req.platform,
-            topic=topic_with_context,
-            language=req.language,
-            provider="groq"
-        )
-        
-        # Guardar en trazabilidad si hay usuario
-        if req.uid and supabase:
-            try:
-                data = {
-                    "user_id": req.uid,
-                    "used_model": "groq",
-                    "prompt": req.topic,  # Prompt original
-                    "language": req.language,
-                    "output": content,
-                    "execution_time": 0.0
-                }
-                supabase.table('trazabilidad').insert(data).execute()
-                print("✅ Guardado en trazabilidad")
-            except Exception as e:
-                print(f"⚠️ Error guardando en trazabilidad: {e}")
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+from time import time as time_now
 
 @app.post("/news-nlp")
-def generate_news_nlp(req: PromptRequest):
-    """Endpoint para generar resúmenes de noticias financieras"""
-    try:
-        data_chunks = []
-        user_bio = ""
+def generate(req: PromptRequest):
+    start_time = time_now()
+
+    data_chunks = []
+    user_bio = ""
 
         if req.uid and db is not None:
             if not UID_REGEX.match(req.uid):
@@ -192,6 +112,39 @@ def generate_news_nlp(req: PromptRequest):
     except Exception as e:
         print(f"Error en news-nlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    resumen = generate_summary(full_context, language=req.language)
+
+    execution_time = round(time_now() - start_time, 2)
+
+    if supabase:
+        try:
+            supabase.table("Trazabilidad").insert({
+                "User_id": req.uid if req.uid else None,
+                "used_model": "groq",
+                "Prompt": req.prompt,
+                "Language": req.language,
+                "Output": resumen,
+                "Execution_time": execution_time
+            }).execute()
+            print("📊 Registro de trazabilidad guardado en Supabase")
+        except Exception as e:
+            print(f"❌ Error guardando trazabilidad en Supabase: {e}")
+
+    return {"response": resumen}
+
+@app.post("/generate")
+def generate_content(request: dict):
+    """Endpoint unificado para generar contenido"""
+    platform = request.get('platform', 'general')
+    topic = request.get('topic', '')
+    
+    if not topic:
+        raise HTTPException(status_code=400, detail="Topic is required")
+    
+    prompt = f"Create content for {platform} about: {topic}"
+    content = generate_summary(prompt, language="es")
+    
+    return {"content": content}
 
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
