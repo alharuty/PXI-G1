@@ -1,25 +1,55 @@
-from fastapi import FastAPI, HTTPException, Query
+# Standard library imports
+import logging
+import os
+import re
 from contextlib import asynccontextmanager
 from typing import List, Dict
+
+# Third-party imports
+import requests
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Local application imports
+from app.agents import generate_content
+from app.arXiv import ArxivExtractor
 from app.models import (
     GenerationRequest, 
     GenerationResponse, 
     ArxivSearchResponse
 )
-from app.agents import generate_content
-from app.arXiv import ArxivExtractor
-from app.vector_store_config import create_vector_store, get_storage_status
 from app.rag_generator import RAGGenerator
-from dotenv import load_dotenv
-import os
-import logging
-import re
+from app.vector_store_config import create_vector_store, get_storage_status
+from firebase_config import db
+from models.prompt import PromptRequest
+from services.alpha_client import get_crypto_price, get_stock_data
+from services.crypto_utils import CRYPTO_LIST
+from services.nlp_generator import generate_summary
+from services.utils import extract_stock_symbol, get_symbol_from_coin_name
+
+# Load environment variables
+load_dotenv()
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# Initialize FastAPI app
+app = FastAPI(title="AI Content Generator", lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# UID validation regex
+UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,7 +84,6 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("🛑 Application stopping...")
 
-app = FastAPI(title="AI Content Generator", lifespan=lifespan)
 # Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
 try:
     vector_store = create_vector_store()
@@ -567,33 +596,7 @@ if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting AI Content Generator API...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-from fastapi import FastAPI, HTTPException, Request  # <-- Agrega Request aquí
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from services.crypto_utils import CRYPTO_LIST
-from services.alpha_client import get_crypto_price, get_stock_data
-from services.nlp_generator import generate_summary
-import re
-from dotenv import load_dotenv
-import os
-import requests
-from models.prompt import PromptRequest
-from services.utils import extract_stock_symbol, get_symbol_from_coin_name
-from firebase_config import db
 
-load_dotenv()
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 @app.post("/news-nlp")
 def generate(req: PromptRequest):
