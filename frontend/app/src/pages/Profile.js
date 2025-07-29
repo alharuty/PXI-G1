@@ -53,21 +53,29 @@ export default function Profile() {
     setIsSaving(false);
   };
 
+  const inputClass = (isEditable) => `w-full p-3 border rounded-lg transition-colors ${
+    isEditable 
+      ? 'bg-dark-700 border-dark-600 text-white focus:ring-2 focus:ring-primary-100 focus:border-primary-100' 
+      : 'border-dark-600 bg-dark-800 text-gray-400'
+  }`;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-900">
       <Navbar />
       
       <div className="max-w-2xl mx-auto py-8 px-4">
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-dark-800 rounded-xl shadow-2xl p-6 border border-dark-700">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center">
-              <AiOutlineUser className="text-primary-100 mr-3" size={32} />
-              <h1 className="text-3xl font-bold text-gray-900">Mi Perfil</h1>
+              <div className="w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center mr-4">
+                <AiOutlineUser className="text-white" size={24} />
+              </div>
+              <h1 className="text-3xl font-bold text-white">Mi Perfil</h1>
             </div>
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center px-4 py-2 bg-primary-100 text-white rounded hover:bg-primary-200 transition-colors"
+                className="flex items-center px-4 py-2 bg-gradient-to-r from-primary-100 to-primary-200 text-white rounded-lg hover:from-primary-200 hover:to-primary-100 transition-all shadow-md"
               >
                 <AiOutlineEdit className="mr-2" size={16} />
                 Editar
@@ -77,14 +85,14 @@ export default function Profile() {
                 <button
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-md"
                 >
                   <AiOutlineSave className="mr-2" size={16} />
                   {isSaving ? 'Guardando...' : 'Guardar'}
                 </button>
                 <button
                   onClick={() => setIsEditing(false)}
-                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
                 >
                   <AiOutlineClose className="mr-2" size={16} />
                   Cancelar
@@ -96,7 +104,7 @@ export default function Profile() {
           <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Nombre
                 </label>
                 <input
@@ -105,16 +113,12 @@ export default function Profile() {
                   value={userInfo.nombre}
                   onChange={handleChange}
                   disabled={!isEditing}
-                  className={`w-full p-3 border rounded-lg transition-colors ${
-                    isEditing 
-                      ? 'border-gray-300 focus:ring-2 focus:ring-primary-100 focus:border-primary-100' 
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
+                  className={inputClass(isEditing)}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Apellido
                 </label>
                 <input
@@ -123,17 +127,13 @@ export default function Profile() {
                   value={userInfo.apellido}
                   onChange={handleChange}
                   disabled={!isEditing}
-                  className={`w-full p-3 border rounded-lg transition-colors ${
-                    isEditing 
-                      ? 'border-gray-300 focus:ring-2 focus:ring-primary-100 focus:border-primary-100' 
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
+                  className={inputClass(isEditing)}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Email
               </label>
               <input
@@ -141,13 +141,13 @@ export default function Profile() {
                 name="email"
                 value={userInfo.email}
                 disabled={true}
-                className="w-full p-3 border border-gray-200 bg-gray-50 rounded-lg text-gray-500"
+                className="w-full p-3 border border-dark-600 bg-dark-800 rounded-lg text-gray-500"
               />
               <p className="text-xs text-gray-500 mt-1">El email no se puede modificar</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Tipo de cuenta
               </label>
               <select
@@ -155,11 +155,7 @@ export default function Profile() {
                 value={userInfo.tipo}
                 onChange={handleChange}
                 disabled={!isEditing}
-                className={`w-full p-3 border rounded-lg transition-colors ${
-                  isEditing 
-                    ? 'border-gray-300 focus:ring-2 focus:ring-primary-100 focus:border-primary-100' 
-                    : 'border-gray-200 bg-gray-50'
-                }`}
+                className={inputClass(isEditing)}
               >
                 <option value="particular">Particular</option>
                 <option value="empresa">Empresa</option>
@@ -167,7 +163,7 @@ export default function Profile() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Biografía
               </label>
               <textarea
@@ -176,36 +172,37 @@ export default function Profile() {
                 onChange={handleChange}
                 disabled={!isEditing}
                 rows="4"
-                className={`w-full p-3 border rounded-lg transition-colors ${
-                  isEditing 
-                    ? 'border-gray-300 focus:ring-2 focus:ring-primary-100 focus:border-primary-100' 
-                    : 'border-gray-200 bg-gray-50'
-                }`}
+                className={inputClass(isEditing)}
+                placeholder="Cuéntanos sobre ti..."
               />
             </div>
           </div>
 
           {/* Información adicional */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="flex items-center text-lg font-medium text-gray-900 mb-4">
-              <AiOutlineIdcard className="mr-2 text-primary-100" size={20} />
+          <div className="mt-8 pt-6 border-t border-dark-700">
+            <h3 className="flex items-center text-lg font-medium text-white mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg flex items-center justify-center mr-3">
+                <AiOutlineIdcard className="text-white" size={16} />
+              </div>
               Información de la cuenta
             </h3>
             <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Usuario ID:</span>
-                <p className="text-gray-600 break-all">{user?.uid}</p>
+              <div className="bg-dark-700 p-4 rounded-lg border border-dark-600">
+                <span className="font-medium text-gray-300">Usuario ID:</span>
+                <p className="text-gray-400 break-all mt-1">{user?.uid}</p>
               </div>
-              <div className="flex items-start">
-                <AiOutlineCalendar className="mr-2 text-primary-100 mt-0.5" size={16} />
-                <div>
-                  <span className="font-medium">Fecha de registro:</span>
-                  <p className="text-gray-600">
-                    {user?.metadata?.creationTime 
-                      ? new Date(user.metadata.creationTime).toLocaleDateString()
-                      : 'No disponible'
-                    }
-                  </p>
+              <div className="bg-dark-700 p-4 rounded-lg border border-dark-600">
+                <div className="flex items-start">
+                  <AiOutlineCalendar className="mr-2 text-primary-100 mt-0.5" size={16} />
+                  <div>
+                    <span className="font-medium text-gray-300">Fecha de registro:</span>
+                    <p className="text-gray-400 mt-1">
+                      {user?.metadata?.creationTime 
+                        ? new Date(user.metadata.creationTime).toLocaleDateString()
+                        : 'No disponible'
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
