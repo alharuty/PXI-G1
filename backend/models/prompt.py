@@ -5,3 +5,10 @@ class PromptRequest(BaseModel):
     language: str
     coin_name: str | None = None
     uid: str | None = None
+
+class ImagenRequest(BaseModel):
+    tema: str
+    audiencia: str
+    estilo: str
+    colores: str
+    detalles: str = ""
