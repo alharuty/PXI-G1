@@ -10,6 +10,7 @@ import {
   AiOutlineCopy,
   AiOutlineClear
 } from 'react-icons/ai';
+import { auth } from "../firebase";
 
 export default function TextGenerator() {
   const [selectedPlatform, setSelectedPlatform] = useState('twitter');
@@ -42,11 +43,15 @@ export default function TextGenerator() {
     try {
       console.log('🔗 API URL:', `${API_BASE_URL}/generate`); // Debug
       console.log('📤 Payload:', { platform: selectedPlatform, topic: prompt, language: selectedLanguage });
-
+      
+      const user = auth.currentUser;
+      const uid = user?.uid || null;
+      
       const response = await axios.post(`${API_BASE_URL}/generate`, {
         platform: selectedPlatform,
         topic: prompt,
-        language: selectedLanguage // ⭐ AGREGAR IDIOMA
+        language: selectedLanguage, // ⭐ AGREGAR IDIOMA
+        uid: uid,
       });
       
       console.log('📥 Response:', response.data); // Debug
