@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.security import HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from services.crypto_utils import CRYPTO_LIST
@@ -10,6 +11,7 @@ from firebase_config import db
 from app.models import GenerationRequest, GenerationResponse
 from app.agents import generate_content
 from dotenv import load_dotenv
+from DB.supabase_client import supabase
 import re
 import os
 import requests
@@ -17,6 +19,35 @@ import requests
 load_dotenv()
 
 app = FastAPI(title="AI Content Generator")
+security = HTTPBearer()
+
+#Post para la creacion de trazabilidad
+
+@app.post("/api/trazabilidad")
+async def create_trazabilidad(
+    user_id: str,
+    used_model: str,
+    prompt: str,
+    language: str,
+    output: str,
+    execution_time: float
+):
+    try:
+        data = {
+            "user_id": user_id,
+            "used_model": used_model,
+            "prompt": prompt,
+            "language": language,
+            "output": output,
+            "execution_time": execution_time
+        }
+        
+        response = supabase.table('trazabilidad').insert(data).execute()
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+#Post para la llamada de generación de imagenes
 
 @app.post("/generate", response_model=GenerationResponse)
 def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq", "ollama"])):
@@ -41,8 +72,6 @@ def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq",
         return GenerationResponse(content=content)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +134,39 @@ def generate(req: PromptRequest):
 
     return {"response": resumen}
 
+#Get para la llamada a trazabilidad y consultarla
+
+@app.get("/api/trazabilidad/{user_id}")
+async def get_trazabilidad_by_user(user_id: str):
+    try:
+        response = supabase.table('trazabilidad').select('*').eq('user_id', user_id).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+#Put para la edición de la tabla
+
+@app.put("/api/trazabilidad/{id}")
+async def update_trazabilidad(
+    id: str,
+    used_model: str = None,
+    prompt: str = None,
+    language: str = None,
+    output: str = None,
+    execution_time: float = None
+):
+    try:
+        updates = {}
+        if used_model: updates["used_model"] = used_model
+        if prompt: updates["prompt"] = prompt
+        if language: updates["language"] = language
+        if output: updates["output"] = output
+        if execution_time: updates["execution_time"] = execution_time
+        
+        response = supabase.table('trazabilidad').update(updates).eq('id', id).execute()
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # =============================
 # Endpoint GET para traer la última imagen generada
@@ -133,8 +195,15 @@ def get_last_image():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # <-- Si ocurre cualquier excepción, se devuelve error 500
     
+    #Delete para eliminar registros de la base de datos
     
-    
+@app.delete("/api/trazabilidad/{id}")
+async def delete_trazabilidad(id: str):
+    try:
+        response = supabase.table('trazabilidad').delete().eq('id', id).execute()
+        return {"message": "Registro de trazabilidad eliminado exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     #==========================================================================
     ###"DESCOMENTAR SI SE REQUIERE"###
