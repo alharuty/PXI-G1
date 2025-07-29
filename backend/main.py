@@ -15,6 +15,10 @@ import re
 import time
 import random
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
+from models.prompt import PromptRequest, ImagenRequest
+from services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from firebase_config import db
+from services.img_generation_functions import crear_prompt_optimizado, generar_imagen_huggingface, generar_imagen_fallback, sanitize_filename, subir_imagen_a_supabase
 
 # Importaciones existentes del proyecto
 from services.crypto_utils import CRYPTO_LIST
@@ -61,38 +65,6 @@ async def create_trazabilidad(
         return response.data[0]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-#Post para la llamada de generación de imagenes
-
-@app.post("/generate", response_model=GenerationResponse)
-def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq", "ollama"])):
-    user_bio = ""
-    if hasattr(req, 'uid') and req.uid:
-        if not UID_REGEX.match(req.uid):
-            raise HTTPException(status_code=400, detail="UID inválido.")
-        doc_ref = db.collection("users").document(req.uid)
-        doc = doc_ref.get()
-        if not doc.exists:
-            raise HTTPException(status_code=400, detail="Usuario no encontrado.")
-        user_data = doc.to_dict()
-        user_bio = user_data.get("bio", "")
-    
-    if user_bio:
-        req.prompt = f"Este es el contexto del usuario: {user_bio}\n\nAhora responde a su solicitud:\n\n{req.prompt}"
-    else:
-        full_topic = req.topic
-
-    try:
-        content = generate_content(req.platform, req.topic, language=req.language, provider=provider)
-        return GenerationResponse(content=content)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-from models.prompt import PromptRequest, ImagenRequest
-from services.utils import extract_stock_symbol, get_symbol_from_coin_name
-from firebase_config import db
-from services.img_generation_functions import crear_prompt_optimizado, generar_imagen_huggingface, generar_imagen_fallback, sanitize_filename, subir_imagen_a_supabase
-
-load_dotenv()
 
 # APIs
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
@@ -198,19 +170,46 @@ async def update_trazabilidad(
         return response.data[0]
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-@app.post("/generate")
-def generate_content(request: dict):
-    """Endpoint unificado para generar contenido"""
-    platform = request.get('platform', 'general')
-    topic = request.get('topic', '')
+
+@app.post("/generate", response_model=GenerationResponse)
+def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq", "ollama"])):
+    user_bio = ""
+    if hasattr(req, 'uid') and req.uid:
+        if not UID_REGEX.match(req.uid):
+            raise HTTPException(status_code=400, detail="UID inválido.")
+        doc_ref = db.collection("users").document(req.uid)
+        doc = doc_ref.get()
+        if not doc.exists:
+            raise HTTPException(status_code=400, detail="Usuario no encontrado.")
+        user_data = doc.to_dict()
+        user_bio = user_data.get("bio", "")
     
-    if not topic:
-        raise HTTPException(status_code=400, detail="Topic is required")
-    
-    prompt = f"Create content for {platform} about: {topic}"
-    content = generate_summary(prompt, language="es")
-    
-    return {"content": content}
+    original_prompt = req.prompt # Guardar el prompt original antes de modificarlo
+
+    if user_bio:
+        req.prompt = f"Este es el contexto del usuario: {user_bio}\n\nAhora responde a su solicitud:\n\n{req.prompt}"
+    else:
+        full_topic = req.topic
+
+    try:
+        content = generate_content(req.platform, req.topic, language=req.language, provider=provider)
+        # Guardar la generación en Supabase
+        try:
+            data = {
+                "user_id": req.uid, # Asumiendo que req.uid es el user_id de Firebase
+                "used_model": provider, # O el modelo específico usado si es diferente
+                "prompt": original_prompt, # Usar el prompt original
+                "language": req.language,
+                "output": content,
+                "execution_time": 0.0 # Puedes calcular el tiempo de ejecución real aquí si lo necesitas
+            }
+            supabase.table('trazabilidad').insert(data).execute()
+        except Exception as e:
+            print(f"Error al guardar en Supabase: {e}")
+            # Considera si quieres lanzar una excepción o simplemente loguear el error
+        return GenerationResponse(content=content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
