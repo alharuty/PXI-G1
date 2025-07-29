@@ -61,9 +61,12 @@ app.add_middleware(
 
 UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
+from time import time as time_now
+
 @app.post("/news-nlp")
 def generate(req: PromptRequest):
-    """Endpoint para generar resúmenes de noticias financieras"""
+    start_time = time_now()
+
     data_chunks = []
     user_bio = ""
 
@@ -104,6 +107,23 @@ def generate(req: PromptRequest):
         full_context = context
 
     resumen = generate_summary(full_context, language=req.language)
+
+    execution_time = round(time_now() - start_time, 2)
+
+    if supabase:
+        try:
+            supabase.table("Trazabilidad").insert({
+                "User_id": req.uid if req.uid else None,
+                "used_model": "groq",
+                "Prompt": req.prompt,
+                "Language": req.language,
+                "Output": resumen,
+                "Execution_time": execution_time
+            }).execute()
+            print("📊 Registro de trazabilidad guardado en Supabase")
+        except Exception as e:
+            print(f"❌ Error guardando trazabilidad en Supabase: {e}")
+
     return {"response": resumen}
 
 @app.post("/generate")
