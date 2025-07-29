@@ -12,3 +12,9 @@ class ImagenRequest(BaseModel):
     estilo: str
     colores: str
     detalles: str = ""
+
+class SimpleGenerationRequest(BaseModel):
+    platform: str
+    topic: str
+    language: str 
+    uid: str | None = None

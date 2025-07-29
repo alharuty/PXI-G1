@@ -16,7 +16,7 @@ import random
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 
 # Importaciones del proyecto
-from models.prompt import PromptRequest, ImagenRequest
+from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
 from services.utils import extract_stock_symbol, get_symbol_from_coin_name
 from services.crypto_utils import CRYPTO_LIST
 from services.alpha_client import get_crypto_price, get_stock_data
@@ -62,16 +62,6 @@ HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/s
 UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 # =============================
-# MODELOS AUXILIARES
-# =============================
-
-class SimpleGenerationRequest(BaseModel):
-    platform: str
-    topic: str
-    language: str = "es"
-    uid: str = None
-
-# =============================
 # ENDPOINTS PRINCIPALES
 # =============================
 
@@ -109,6 +99,7 @@ async def generate_simple(req: SimpleGenerationRequest):
         if user_bio:
             topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {req.topic}"
         
+        start_time = time.time()
         # Generar contenido usando el sistema de agentes
         content = generate_content(
             platform=req.platform,
@@ -117,18 +108,22 @@ async def generate_simple(req: SimpleGenerationRequest):
             provider="groq"
         )
         
+        end_time = time.time() # Registrar el tiempo de finalización
+        execution_time = end_time - start_time # Calcular el tiempo de ejecución
+
         # Guardar en trazabilidad si hay usuario
         if req.uid and supabase:
             try:
                 data = {
-                    "user_id": req.uid,
+                    "User_id": req.uid,
                     "used_model": "groq",
-                    "prompt": req.topic,  # Prompt original
-                    "language": req.language,
-                    "output": content,
-                    "execution_time": 0.0
+                    "Prompt": req.topic,  # Prompt original
+                    "Language": req.language,
+                    "Output": content,
+                    "Execution_time": execution_time
                 }
-                supabase.table('trazabilidad').insert(data).execute()
+                print(f"DEBUG: Data to be inserted: {data}")
+                supabase.table('Trazabilidad').insert(data).execute()
                 print("✅ Guardado en trazabilidad")
             except Exception as e:
                 print(f"⚠️ Error guardando en trazabilidad: {e}")
