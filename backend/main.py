@@ -38,6 +38,8 @@ from backend.app.agents import generate_content as generate_content_agent
 from backend.DB.supabase_client import supabase
 from pathlib import Path
 from dotenv import load_dotenv
+from backend.services.utils import get_language_name
+
 
 env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -414,7 +416,8 @@ def generate_news_nlp(req: PromptRequest):
         else:
             full_context = context
 
-        resumen = generate_summary(full_context, language=req.language)
+        language_name = get_language_name(req.language)
+        resumen = generate_summary(full_context, language=language_name)
         
         execution_time = round(time_now() - start_time, 2)
 
