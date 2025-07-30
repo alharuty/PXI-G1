@@ -371,6 +371,81 @@ def compare_rag_vs_simple(
 # ENDPOINTS EXISTENTES
 # =============================
 
+@app.post("/generate")
+async def generate_simple(req: SimpleGenerationRequest):
+    """
+    Endpoint simplificado para generar contenido de texto
+    Compatible con el frontend TextGenerator.js
+    """
+    try:
+        print(f"🎯 Solicitud de generación: {req.platform} | {req.topic} | {req.language}")
+        
+        # Validaciones básicas
+        if not req.topic or not req.topic.strip():
+            raise HTTPException(status_code=400, detail="Topic es requerido")
+        
+        if not req.platform:
+            raise HTTPException(status_code=400, detail="Platform es requerida")
+        
+        # Obtener contexto del usuario si está disponible
+        user_bio = ""
+        if req.uid and db is not None:
+            try:
+                if UID_REGEX.match(req.uid):
+                    doc_ref = db.collection("users").document(req.uid)
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        user_data = doc.to_dict()
+                        user_bio = user_data.get("bio", "")
+            except Exception as e:
+                print(f"⚠️ Error accediendo a Firebase: {e}")
+        
+        # Agregar contexto del usuario si existe
+        topic_with_context = req.topic
+        if user_bio:
+            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {req.topic}"
+        
+        start_time = time.time()
+        # Generar contenido usando el sistema de agentes
+        content = generate_content(
+            platform=req.platform,
+            topic=topic_with_context,
+            language=req.language,
+            provider="groq"
+        )
+        
+        end_time = time.time() # Registrar el tiempo de finalización
+        execution_time = end_time - start_time # Calcular el tiempo de ejecución
+
+        # Guardar en trazabilidad si hay usuario
+        if req.uid and supabase:
+            try:
+                data = {
+                    "User_id": req.uid,
+                    "used_model": "groq",
+                    "Prompt": req.topic,  # Prompt original
+                    "Language": req.language,
+                    "Output": content,
+                    "Execution_time": execution_time
+                }
+                print(f"DEBUG: Data to be inserted: {data}")
+                supabase.table('Trazabilidad').insert(data).execute()
+                print("✅ Guardado en trazabilidad")
+            except Exception as e:
+                print(f"⚠️ Error guardando en trazabilidad: {e}")
+        
+        return {"content": content}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"💥 Error generando contenido: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+
+
 @app.post("/news-nlp")
 def generate_news_nlp(req: PromptRequest):
     """Endpoint para generar resúmenes de noticias financieras"""
