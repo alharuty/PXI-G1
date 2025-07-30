@@ -1,0 +1,25 @@
+{
+  "short_name": "AI Creator",
+  "name": "AI Creator - Plataforma de IA",
+  "icons": [
+    {
+      "src": "buudy.png",
+      "type": "image/png",
+      "sizes": "64x64"
+    },
+    {
+      "src": "buudy.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "buudy.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0081A7",
+  "background_color": "#ffffff"
+}
