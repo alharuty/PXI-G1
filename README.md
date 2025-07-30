@@ -1,5 +1,8 @@
 # 🤖 BUDDY - AI Content Generation Platform
 
+<img width="280" height="280" alt="Pine Tree Forest   Adventure Nature Logo (6)" src="https://github.com/user-attachments/assets/c4b0e234-137d-42d5-abf6-cc9f5354bebb" />
+
+
 > **Plataforma integral de generación de contenido con IA, análisis financiero y sistema RAG científico**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -20,7 +23,7 @@
 - [🎮 Uso](#-uso)
 - [📁 Estructura del Proyecto](#-estructura-del-proyecto)
 - [🔌 API Endpoints](#-api-endpoints)
-- [🧪 Testing](#-testing)
+- [Demo](#-Demo)
 - [🤝 Contribución](#-contribución)
 - [📄 Licencia](#-licencia)
 
@@ -299,30 +302,26 @@ PXI-G1/
 - `GET /health` - Health check completo
 - `GET /docs` - Documentación Swagger
 
-## 🧪 Testing
+## Demo
 
-### **Backend**
-```bash
-cd backend
-python -m pytest tests/
-```
+Dashboard
+<img width="1417" height="814" alt="Macbook-Air-localhost" src="https://github.com/user-attachments/assets/c45ebb42-8f4a-4181-ae24-1883e276b750" />
 
-### **Frontend**
-```bash
-cd frontend/app
-npm test
-```
+Generación de Texto
+<img width="1417" height="814" alt="Macbook-Air-localhost (1)" src="https://github.com/user-attachments/assets/6df5d4e9-25f6-4925-b71a-6bb373873d16" />
 
-### **Verificar APIs**
-```bash
-# Probar conexión al backend
-curl http://localhost:8000/health
+Generación de Imágenes
+<img width="1417" height="814" alt="Macbook-Air-localhost (2)" src="https://github.com/user-attachments/assets/e0af60f3-5340-41f6-a550-a34176769473" />
+<img width="1417" height="814" alt="Macbook-Air-localhost (4)" src="https://github.com/user-attachments/assets/c6d64677-be48-4c14-97a8-29a1e47efd0d" />
 
-# Probar generación de texto
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"platform": "twitter", "topic": "inteligencia artificial", "language": "es"}'
-```
+Noticias Financieras
+<img width="1417" height="814" alt="Macbook-Air-localhost (5)" src="https://github.com/user-attachments/assets/e9bfdd54-87be-41af-ae9f-02019a0c83f4" />
+
+RAG científico 
+<img width="1417" height="814" alt="Macbook-Air-localhost (6)" src="https://github.com/user-attachments/assets/5317aa6c-3afd-4862-8682-b39b8978e995" />
+<img width="1417" height="814" alt="Macbook-Air-localhost (7)" src="https://github.com/user-attachments/assets/546faac2-f8b5-4330-9057-f069bb81449c" />
+<img width="1417" height="814" alt="Macbook-Air-localhost (8)" src="https://github.com/user-attachments/assets/5eff592d-b4bd-4a42-8d32-a72ad4e01848" />
+
 
 ## 🤝 Contribución
 
