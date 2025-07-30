@@ -26,6 +26,8 @@ export default function ArticleSearch() {
     }
 
     setIsSearching(true);
+    setSelectedArticles([]); // Reset selections when searching
+    
     try {
       console.log('🔍 Buscando artículos científicos:', { searchTerm, articleCount });
       
@@ -44,7 +46,6 @@ export default function ArticleSearch() {
       const result = response.data;
       const foundArticles = result.documents || [];
       setArticles(foundArticles);
-      setSelectedArticles([]);
       
       console.log(`✅ Encontrados ${foundArticles.length} artículos`);
     } catch (error) {
@@ -104,6 +105,14 @@ export default function ArticleSearch() {
         return [...prev, articleIndex];
       }
     });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedArticles.length === articles.length) {
+      setSelectedArticles([]);
+    } else {
+      setSelectedArticles(articles.map((_, index) => index));
+    }
   };
 
   const handleAddSelectedToDatabase = async () => {
@@ -198,69 +207,104 @@ export default function ArticleSearch() {
       {/* Results */}
       {articles.length > 0 && (
         <div className="bg-dark-700 rounded-lg p-6 border border-dark-600">
+          {/* Header with controls */}
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-bold text-white flex items-center">
               <AiOutlineFileText className="mr-2" size={24} />
               Resultados de la búsqueda ({articles.length} artículos)
             </h3>
             
-            {selectedArticles.length > 0 && (
+            <div className="flex items-center gap-3">
+              {/* Select All Button */}
               <button
-                onClick={handleAddSelectedToDatabase}
-                disabled={isAddingToDb}
-                className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
-                  isAddingToDb
-                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                    : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
-                }`}
+                onClick={handleSelectAll}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                <AiOutlineDatabase className="mr-2" size={16} />
-                {isAddingToDb ? 'Agregando...' : `Agregar ${selectedArticles.length} a la base vectorial`}
+                <AiOutlineCheckCircle className="mr-2" size={16} />
+                {selectedArticles.length === articles.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
               </button>
-            )}
+              
+              {/* Add Selected Button */}
+              {selectedArticles.length > 0 && (
+                <button
+                  onClick={handleAddSelectedToDatabase}
+                  disabled={isAddingToDb}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all ${
+                    isAddingToDb
+                      ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                      : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
+                  }`}
+                >
+                  <AiOutlineDatabase className="mr-2" size={16} />
+                  {isAddingToDb ? 'Agregando...' : `Agregar ${selectedArticles.length} a la base vectorial`}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Selection Summary */}
+          {selectedArticles.length > 0 && (
+            <div className="bg-green-900 bg-opacity-20 border border-green-800 rounded-lg p-3 mb-4">
+              <p className="text-green-300 text-sm">
+                📋 <strong>{selectedArticles.length}</strong> artículo(s) seleccionado(s) de {articles.length}
+              </p>
+            </div>
+          )}
           
+          {/* Articles List */}
           <div className="space-y-4">
             {articles.map((article, index) => (
               <div
                 key={article.id || index}
-                className={`bg-dark-800 rounded-lg p-6 border transition-all ${
+                className={`bg-dark-800 rounded-lg p-6 border transition-all duration-200 ${
                   selectedArticles.includes(index)
-                    ? 'border-green-500 bg-green-900 bg-opacity-20'
+                    ? 'border-green-500 bg-green-900 bg-opacity-20 shadow-lg'
                     : 'border-dark-600 hover:border-primary-200'
                 }`}
               >
+                {/* Selection Checkbox and Title */}
                 <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedArticles.includes(index)}
-                      onChange={() => handleToggleSelection(index)}
-                      className="mr-3 w-4 h-4 text-green-600 bg-dark-700 border-dark-600 rounded focus:ring-green-500"
-                    />
-                    <h4 className="text-lg font-semibold text-white leading-tight">
-                      {index + 1}. {article.title}
-                    </h4>
-                    {selectedArticles.includes(index) && (
-                      <AiOutlineCheckCircle className="ml-2 text-green-400" size={20} />
-                    )}
+                  <div className="flex items-start w-full">
+                    <label className="flex items-start cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedArticles.includes(index)}
+                        onChange={() => handleToggleSelection(index)}
+                        className="mt-1 mr-3 w-4 h-4 text-green-600 bg-dark-700 border-dark-600 rounded focus:ring-green-500 focus:ring-2"
+                      />
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-white leading-tight">
+                          {index + 1}. {article.title}
+                        </h4>
+                        {selectedArticles.includes(index) && (
+                          <div className="flex items-center mt-1">
+                            <AiOutlineCheckCircle className="text-green-400 mr-1" size={16} />
+                            <span className="text-green-400 text-sm">Seleccionado</span>
+                          </div>
+                        )}
+                      </div>
+                    </label>
                   </div>
                 </div>
                 
+                {/* Authors */}
                 <div className="text-sm text-gray-400 mb-2">
                   <strong>Autores:</strong> {Array.isArray(article.authors) ? article.authors.join(', ') : article.authors}
                 </div>
                 
+                {/* Abstract */}
                 <p className="text-gray-300 text-sm leading-relaxed mb-4">
                   <strong>Resumen:</strong> {article.abstract}
                 </p>
                 
+                {/* Metadata */}
                 <div className="text-xs text-gray-500 mb-4">
                   <strong>arXiv ID:</strong> {article.arxiv_id || article.id} | 
                   <strong> Publicado:</strong> {article.published_date || article.published} |
                   <strong> PDF:</strong> {article.pdf_downloaded ? '✅ Descargado' : '📥 Disponible'}
                 </div>
                 
+                {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3">
                   <button
                     onClick={() => window.open(article.pdf_url, '_blank')}
@@ -282,20 +326,22 @@ export default function ArticleSearch() {
             ))}
           </div>
           
+          {/* Instructions */}
           {articles.length > 0 && (
             <div className="mt-6 p-4 bg-blue-900 bg-opacity-20 rounded-lg border border-blue-800">
               <h4 className="text-blue-300 font-medium mb-2">📋 Instrucciones:</h4>
               <ol className="text-blue-200 text-sm space-y-1">
-                <li>1. Selecciona los artículos que quieres agregar a la base de conocimientos</li>
-                <li>2. Haz clic en "Agregar a la base vectorial" para guardarlos</li>
-                <li>3. Una vez agregados, podrás hacer preguntas sobre ellos en la sección "Preguntas sobre Base de Conocimientos"</li>
+                <li>1. Usa los checkboxes para seleccionar los artículos que quieres agregar a la base de conocimientos</li>
+                <li>2. Haz clic en "Agregar X a la base vectorial" para guardarlos</li>
+                <li>3. Una vez agregados, podrás hacer preguntas sobre ellos en la sección "Consultar Base de Datos"</li>
               </ol>
             </div>
           )}
         </div>
       )}
       
-      {articles.length === 0 && searchTerm && (
+      {/* Empty State */}
+      {articles.length === 0 && !isSearching && (
         <div className="text-center py-8">
           <p className="text-gray-400">Busca artículos científicos para comenzar</p>
         </div>

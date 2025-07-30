@@ -25,7 +25,7 @@ export default function Navbar() {
     { path: '/dashboard', label: 'Dashboard', icon: AiOutlineHome },
     { path: '/text-generator', label: 'Generar Textos', icon: AiOutlineEdit },
     { path: '/image-generator', label: 'Generar Imágenes', icon: AiOutlineCamera },
-    { path: '/ai-services', label: 'Servicios IA', icon: AiOutlineRobot },
+    { path: '/ai-services', label: 'Noticias Financieras', icon: AiOutlineRobot },
     { path: '/scientific-rag', label: 'RAG Científico', icon: AiOutlineBook }, // ⭐ NUEVO
     { path: '/profile', label: 'Perfil', icon: AiOutlineUser },
   ];
