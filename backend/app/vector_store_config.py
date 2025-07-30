@@ -3,12 +3,14 @@
 Vector Store Configuration
 Choose between local and cloud storage options
 """
-from dotenv import load_dotenv
-
 import os
 from typing import Optional
 from enum import Enum
-load_dotenv()
+from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 class StorageType(Enum):
     """Available storage types"""

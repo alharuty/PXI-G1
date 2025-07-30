@@ -3,10 +3,14 @@ import xml.etree.ElementTree as ET
 import os
 import time
 from typing import List, Dict, Optional
-import urllib.parse
 from datetime import datetime, timedelta
 import PyPDF2
 import re
+from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 class ArxivDocument:

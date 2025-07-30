@@ -1,5 +1,5 @@
 import re
-from services.crypto_utils import CRYPTO_LIST
+from .crypto_utils import CRYPTO_LIST
 
 def extract_stock_symbol(text: str) -> str | None:
     match = re.search(r'\b([A-Z]{1,5})\b', text)

@@ -1,70 +1,51 @@
-
-# Standard library imports
-import logging
 import os
 import re
 from contextlib import asynccontextmanager
-from typing import List, Dict
-
-# Third-party imports
-from fastapi import FastAPI, HTTPException, Query, Request
+from typing import Dict
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel
 import os
 from datetime import datetime
-import requests
 import base64
 from dotenv import load_dotenv
-from deep_translator import GoogleTranslator
-from supabase import create_client, Client
 import re
 import time
-import random
-from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 from time import time as time_now
-
-# Importaciones existentes del proyecto
-
-# Local application imports
-from app.agents import generate_content
-from app.arXiv import ArxivExtractor
-from app.models import (
+from backend.app.agents import generate_content
+from backend.app.arXiv import ArxivExtractor
+from backend.app.models import (
     GenerationRequest, 
-    GenerationResponse, 
-    ArxivSearchResponse
+    GenerationResponse
 )
-from app.rag_generator import RAGGenerator
-from app.vector_store_config import create_vector_store, get_storage_status
-from firebase_config import db
-from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
-from services.utils import extract_stock_symbol, get_symbol_from_coin_name
-from services.crypto_utils import CRYPTO_LIST
-from services.alpha_client import get_crypto_price, get_stock_data
-from services.crypto_utils import CRYPTO_LIST
-from services.nlp_generator import generate_summary
-from firebase_config import db
-from services.img_generation_functions import (
+from backend.app.rag_generator import RAGGenerator
+from backend.app.vector_store_config import create_vector_store, get_storage_status
+from .firebase_config import db
+from backend.models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
+from backend.services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from backend.services.alpha_client import get_crypto_price, get_stock_data
+from backend.services.crypto_utils import CRYPTO_LIST
+from backend.services.nlp_generator import generate_summary
+from backend.services.img_generation_functions import (
     crear_prompt_optimizado, 
     generar_imagen_huggingface, 
     generar_imagen_fallback, 
     sanitize_filename, 
     subir_imagen_a_supabase
 )
-from app.models import GenerationRequest, GenerationResponse
-from app.agents import generate_content as generate_content_agent
-from DB.supabase_client import supabase
+from backend.app.agents import generate_content as generate_content_agent
+from backend.DB.supabase_client import supabase
+from pathlib import Path
+from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 app = FastAPI(
     title="🤖 BUDDY API Unificada", 
     description="API completa con NLP y generación de imágenes integrada",
     version="2.0.0"
 )
-
 
 # Add CORS middleware
 app.add_middleware(
@@ -79,7 +60,18 @@ app.add_middleware(
 UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 @asynccontextmanager
-# Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
+async def lifespan(app: FastAPI):
+    # Startup
+    # print("🚀 FastAPI application starting...")
+    # print("📖 Swagger documentation: http://localhost:8001/docs")
+    # print("✅ Application ready to work!")
+
+    yield
+
+#Shutdown
+    print("🛑 Application stopping...")
+
+#Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
 try:
     vector_store = create_vector_store()
     storage_status = get_storage_status()
@@ -123,17 +115,6 @@ def health_check():
     """Server health check"""
     return {"status": "healthy", "message": "Server is running normally"}
 
-
-    
-@app.post("/generate", response_model=GenerationResponse)
-def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq", "ollama"])):
-    try:
-        content = generate_content(req.platform, req.topic, provider=provider)
-        return GenerationResponse(content=content)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# POST endpoint removed - using GET only for simplicity
 
 @app.get("/arxiv/search")
 def search_arxiv_papers_get(
@@ -738,44 +719,6 @@ def generate_news_nlp(req: PromptRequest):
     except Exception as e:
         print(f"Error en news-nlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/generate")
-async def generate_simple_content(request: dict):
-    """
-    Endpoint simplificado para generar contenido de texto
-    Compatible con el frontend TextGenerator.js
-    """
-    try:
-        platform = request.get('platform', 'twitter')
-        topic = request.get('topic', '')
-        language = request.get('language', 'es')
-        
-        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
-        
-        # Validaciones básicas
-        if not topic or not topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Generar contenido usando el sistema de agentes
-        content = generate_content_agent(
-            platform=platform,
-            topic=topic,
-            language=language,
-            provider="groq"
-        )
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
