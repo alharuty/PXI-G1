@@ -10,7 +10,6 @@ from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import logging
-import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ class SimpleHuggingFaceStore:
         
         # Load model
         logger.info(f"Loading model: {model_name}")
-        self.model = SentenceTransformer(model_name, cache_folder=cache_dir)
+        self.model = SentenceTransformer(model_name, cache_folder=cache_dir, use_auth_token=os.getenv("HUGGINGFACE_API_KEY"))
         logger.info("Model loaded successfully")
     
     def _fragment_text(self, text, chunk_size=None, chunk_overlap=None):
@@ -350,7 +349,7 @@ class SimpleHuggingFaceStore:
         self.tfidf_matrix = data['tfidf_matrix']
         
         # Reload model
-        self.model = SentenceTransformer(self.model_name, cache_folder=self.cache_dir)
+        self.model = SentenceTransformer(self.model_name, cache_folder=self.cache_dir, use_auth_token=os.getenv("HUGGINGFACE_API_KEY"))
         
         logger.info(f"Storage loaded from {filepath}")
         logger.info(f"Loaded {len(self.documents)} documents, {len(self.fragments)} fragments")

@@ -6,11 +6,15 @@ Cloud-based vector database for ArXiv articles
 
 import os
 import json
-import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from datetime import datetime
 import logging
 from collections import defaultdict
+from pathlib import Path
+from dotenv import load_dotenv
+
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Qdrant imports
 try:
@@ -85,7 +89,7 @@ class QdrantVectorStore:
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             raise ImportError("SentenceTransformers not available. Install with: pip install sentence-transformers")
         
-        self.embedding_model = SentenceTransformer(embedding_model)
+        self.embedding_model = SentenceTransformer(embedding_model, use_auth_token=os.getenv("HUGGINGFACE_API_KEY"))
         self.embedding_dimension = self.embedding_model.get_sentence_embedding_dimension()
         
         # Create collection if it doesn't exist

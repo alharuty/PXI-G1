@@ -1,115 +1,54 @@
-# Standard library imports
-import logging
 import os
 import re
 import time
 from contextlib import asynccontextmanager
-from typing import List, Dict
-from datetime import datetime
-
-# Third-party imports
-from fastapi import FastAPI, HTTPException, Query, Request
+from typing import Dict
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer
-from pydantic import BaseModel
-import requests
+import os
+from datetime import datetime
 import base64
 from dotenv import load_dotenv
-from deep_translator import GoogleTranslator
-from supabase import create_client, Client
-from requests.exceptions import ReadTimeout, ConnectionError, RequestException
+import re
+import time
 from time import time as time_now
-
-# Local application imports
-from app.agents import generate_content
-from app.arXiv import ArxivExtractor
-from app.models import GenerationRequest, GenerationResponse, ArxivSearchResponse
-from app.rag_generator import RAGGenerator
-from app.vector_store_config import create_vector_store, get_storage_status
-from firebase_config import db
-from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
-from services.utils import extract_stock_symbol, get_symbol_from_coin_name
-from services.crypto_utils import CRYPTO_LIST
-from services.alpha_client import get_crypto_price, get_stock_data
-from services.nlp_generator import generate_summary
-from services.img_generation_functions import (
+from backend.app.agents import generate_content
+from backend.app.arXiv import ArxivExtractor
+from backend.app.models import (
+    GenerationRequest, 
+    GenerationResponse
+)
+from backend.app.rag_generator import RAGGenerator
+from backend.app.vector_store_config import create_vector_store, get_storage_status
+from .firebase_config import db
+from backend.models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
+from backend.services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from backend.services.alpha_client import get_crypto_price, get_stock_data
+from backend.services.crypto_utils import CRYPTO_LIST
+from backend.services.nlp_generator import generate_summary
+from backend.services.img_generation_functions import (
     crear_prompt_optimizado, 
     generar_imagen_huggingface, 
     generar_imagen_fallback, 
     sanitize_filename, 
     subir_imagen_a_supabase
 )
-from DB.supabase_client import supabase
+from backend.app.agents import generate_content as generate_content_agent
+from backend.DB.supabase_client import supabase
+from pathlib import Path
+from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
-# Variables globales
-vector_store = None
-rag_generator = None
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
-
-# =============================
-# ASYNC CONTEXT MANAGER - ÚNICO
-# =============================
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize and cleanup application lifecycle"""
-    print("🚀 Initializing BUDDY API...")
-    
-    global vector_store, rag_generator
-    
-    # Vector database setup
-    try:
-        vector_store = create_vector_store()
-        storage_status = get_storage_status()
-        print(f"✅ Using {storage_status['current_storage']} storage")
-    except Exception as e:
-        print(f"❌ Error creating vector store: {e}")
-        print("🔄 Falling back to local storage")
-        from app.local_vector_store import SimpleHuggingFaceStore
-        vector_store = SimpleHuggingFaceStore(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            chunk_size=512,
-            chunk_overlap=50
-        )
-
-    # RAG generator setup
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        print("⚠️ Warning: GROQ_API_KEY not found. RAG endpoints will not work.")
-        print("   Please set: $env:GROQ_API_KEY='your-api-key'")
-        rag_generator = None
-    else:
-        rag_generator = RAGGenerator(api_key=groq_api_key)
-        print("✅ RAG generator initialized")
-    
-    print("✅ Application startup complete")
-    
-    yield
-    
-    # Cleanup
-    print("🔄 Application shutdown")
-
-# =============================
-# FASTAPI APP - ÚNICO
-# =============================
+env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 app = FastAPI(
     title="🤖 BUDDY API Unificada", 
-    description="API completa con NLP, RAG y generación de imágenes integrada",
-    version="2.0.0",
-    lifespan=lifespan
+    description="API completa con NLP y generación de imágenes integrada",
+    version="2.0.0"
 )
 
-# =============================
-# CORS MIDDLEWARE - ÚNICO
-# =============================
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -118,11 +57,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-security = HTTPBearer()
+# UID validation regex
+UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
-# =============================
-# ENDPOINTS PRINCIPALES
-# =============================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    # print("🚀 FastAPI application starting...")
+    # print("📖 Swagger documentation: http://localhost:8001/docs")
+    # print("✅ Application ready to work!")
+
+    yield
+
+#Shutdown
+    print("🛑 Application stopping...")
+
+#Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
+try:
+    vector_store = create_vector_store()
+    storage_status = get_storage_status()
+    print(f"✅ Using {storage_status['current_storage']} storage")
+except Exception as e:
+    print(f"❌ Error creating vector store: {e}")
+    print("🔄 Falling back to local storage")
+    from app.local_vector_store import SimpleHuggingFaceStore
+    vector_store = SimpleHuggingFaceStore(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        chunk_size=512,
+        chunk_overlap=50
+    )
+
+# RAG generator
+groq_api_key = os.getenv("GROQ_API_KEY")
+if not groq_api_key:
+    print("⚠️ Warning: GROQ_API_KEY not found. RAG endpoints will not work.")
+    print("   Please set: $env:GROQ_API_KEY='your-api-key'")
+    rag_generator = None
+else:
+    rag_generator = RAGGenerator(api_key=groq_api_key)
 
 @app.get("/")
 def root():
@@ -152,124 +124,9 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Server health check with RAG status"""
-    api_status = {
-        "groq": "✅" if os.getenv("GROQ_API_KEY") else "❌",
-        "huggingface": "✅" if HUGGINGFACE_API_KEY else "❌",
-        "alphavantage": "✅" if os.getenv("ALPHAVANTAGE_API_KEY") else "❌"
-    }
-    
-    service_status = {
-        "firebase": "✅" if db is not None else "❌",
-        "supabase": "✅" if supabase else "❌",
-        "vector_store": "✅" if vector_store else "❌",
-        "rag_generator": "✅" if rag_generator else "❌"
-    }
-    
-    return {
-        "status": "healthy", 
-        "message": "🤖 BUDDY API funcionando correctamente",
-        "timestamp": datetime.now().isoformat(),
-        "apis": api_status,
-        "services": service_status,
-        "rag_status": {
-            "vector_documents": len(vector_store.documents) if vector_store and hasattr(vector_store, 'documents') else 0,
-            "ready": vector_store is not None and rag_generator is not None
-        }
-    }
+    """Server health check"""
+    return {"status": "healthy", "message": "Server is running normally"}
 
-# =============================
-# ENDPOINT GENERATE - ÚNICO
-# =============================
-
-@app.post("/generate")
-async def generate_content_endpoint(request: dict):
-    """
-    Endpoint único para generar contenido de texto
-    Compatible con SimpleGenerationRequest y dict
-    """
-    try:
-        # Extraer datos del request (dict o SimpleGenerationRequest)
-        if isinstance(request, dict):
-            platform = request.get('platform', 'twitter')
-            topic = request.get('topic', '')
-            language = request.get('language', 'es')
-            uid = request.get('uid', None)
-        else:
-            platform = getattr(request, 'platform', 'twitter')
-            topic = getattr(request, 'topic', '')
-            language = getattr(request, 'language', 'es')
-            uid = getattr(request, 'uid', None)
-        
-        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
-        
-        # Validaciones básicas
-        if not topic or not topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Obtener contexto del usuario si está disponible
-        user_bio = ""
-        if uid and db is not None:
-            try:
-                if UID_REGEX.match(uid):
-                    doc_ref = db.collection("users").document(uid)
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        user_data = doc.to_dict()
-                        user_bio = user_data.get("bio", "")
-            except Exception as e:
-                print(f"⚠️ Error accediendo a Firebase: {e}")
-        
-        # Agregar contexto del usuario si existe
-        topic_with_context = topic
-        if user_bio:
-            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {topic}"
-        
-        start_time = time.time()
-        
-        # Generar contenido usando el sistema de agentes
-        content = generate_content(
-            platform=platform,
-            topic=topic_with_context,
-            language=language,
-            provider="groq"
-        )
-        
-        end_time = time.time()
-        execution_time = end_time - start_time
-
-        # Guardar en trazabilidad si hay usuario
-        if uid and supabase:
-            try:
-                data = {
-                    "User_id": uid,
-                    "used_model": "groq",
-                    "Prompt": topic,
-                    "Language": language,
-                    "Output": content,
-                    "Execution_time": execution_time
-                }
-                supabase.table('Trazabilidad').insert(data).execute()
-                print("✅ Guardado en trazabilidad")
-            except Exception as e:
-                print(f"⚠️ Error guardando en trazabilidad: {e}")
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
-# =============================
-# ENDPOINTS RAG CIENTÍFICO - MANTENIENDO LOS DE TU COMPAÑERA
-# =============================
 
 @app.get("/arxiv/search")
 def search_arxiv_papers_get(

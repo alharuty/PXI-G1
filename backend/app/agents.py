@@ -1,5 +1,5 @@
-from app.config import get_llm
-from app.prompts import get_prompt
+from ..app.config import get_llm
+from ..app.prompts import get_prompt
 
 def generate_content(platform: str, topic: str, language: str = "es", provider: str = "groq") -> str:
     llm = get_llm(provider=provider)
