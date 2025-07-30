@@ -204,3 +204,5 @@ comandos.txt
 
 backend/imagenes/
 arxiv_papers/
+
+huggingface_cache/
