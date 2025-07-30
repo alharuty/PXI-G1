@@ -29,20 +29,22 @@ export default function ArticleSearch() {
     try {
       console.log('🔍 Buscando artículos científicos:', { searchTerm, articleCount });
       
-      // TODO: Conectar con endpoint real de arXiv
-      const response = await axios.get(`${API_BASE_URL}/rag/search-articles`, {
+      // ⭐ USAR EL ENDPOINT QUE YA EXISTE
+      const response = await axios.get(`${API_BASE_URL}/arxiv/search`, {
         params: {
           topic: searchTerm,
           max_results: articleCount,
           download_pdfs: true,
-          extract_text: true
+          extract_text: true,
+          days_back: 365
         }
       });
       
+      // ⭐ ADAPTAR LA RESPUESTA A LA ESTRUCTURA EXISTENTE
       const result = response.data;
-      const foundArticles = result.articles || result.documents || [];
+      const foundArticles = result.documents || [];
       setArticles(foundArticles);
-      setSelectedArticles([]); // Reset selections
+      setSelectedArticles([]);
       
       console.log(`✅ Encontrados ${foundArticles.length} artículos`);
     } catch (error) {
@@ -116,10 +118,10 @@ export default function ArticleSearch() {
       
       console.log('📥 Agregando artículos a la base vectorial:', selectedArticleData.length);
       
-      // TODO: Conectar con endpoint real de base vectorial
-      const response = await axios.post(`${API_BASE_URL}/rag/add-articles-to-vector-db`, {
-        articles: selectedArticleData,
-        search_topic: searchTerm,
+      // ⭐ USAR EL ENDPOINT QUE YA EXISTE
+      const response = await axios.post(`${API_BASE_URL}/vector/add_articles_from_search`, {
+        documents: selectedArticleData, // ⭐ Usar 'documents' según el endpoint existente
+        topic: searchTerm,
         search_date: new Date().toISOString()
       });
       

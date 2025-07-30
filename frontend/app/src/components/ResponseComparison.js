@@ -24,21 +24,19 @@ export default function ResponseComparison() {
     try {
       console.log('Comparando respuestas para:', question);
       
-      // TODO: Reemplazar con los endpoints reales cuando estén listos
-      const [ragRes, simpleRes] = await Promise.all([
-        axios.post(`${process.env.REACT_APP_API_BASE_URL}/rag/ask-knowledge`, {
-          question: question,
-          use_rag: true
-        }),
-        axios.post(`${process.env.REACT_APP_API_BASE_URL}/generate`, {
-          platform: 'general',
-          topic: question,
-          language: 'es'
-        })
-      ]);
+      // ⭐ USAR EL ENDPOINT QUE YA EXISTE
+      const response = await axios.get(`${API_BASE_URL}/rag/compare`, {
+        params: {
+          query: question,
+          top_k: 5,
+          temperature: 0.7,
+          max_tokens: 1024
+        }
+      });
       
-      setRagResponse(ragRes.data.response);
-      setSimpleResponse(simpleRes.data.content);
+      const data = response.data;
+      setRagResponse(data.rag_response.response);
+      setSimpleResponse(data.simple_response.response);
     } catch (error) {
       console.error('Error comparing responses:', error);
       

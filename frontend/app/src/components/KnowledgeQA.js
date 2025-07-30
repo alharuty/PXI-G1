@@ -24,10 +24,15 @@ export default function KnowledgeQA() {
     try {
       console.log('Pregunta sobre base de conocimientos:', question);
       
-      // TODO: Reemplazar con el endpoint real cuando esté listo
-      const res = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/rag/ask-knowledge`, {
-        question: question,
-        use_rag: true
+      // ⭐ USAR EL ENDPOINT QUE YA EXISTE
+      const res = await axios.post(`${API_BASE_URL}/rag/generate`, null, {
+        params: {
+          query: question,
+          top_k: 5,
+          temperature: 0.7,
+          max_tokens: 1024,
+          stream: false
+        }
       });
       
       setResponse(res.data.response);

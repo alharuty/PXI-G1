@@ -1,10 +1,11 @@
-
 # Standard library imports
 import logging
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from typing import List, Dict
+from datetime import datetime
 
 # Third-party imports
 from fastapi import FastAPI, HTTPException, Query, Request
@@ -12,29 +13,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-import os
-from datetime import datetime
 import requests
 import base64
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
 from supabase import create_client, Client
-import re
-import time
-import random
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 from time import time as time_now
-
-# Importaciones existentes del proyecto
 
 # Local application imports
 from app.agents import generate_content
 from app.arXiv import ArxivExtractor
-from app.models import (
-    GenerationRequest, 
-    GenerationResponse, 
-    ArxivSearchResponse
-)
+from app.models import GenerationRequest, GenerationResponse, ArxivSearchResponse
 from app.rag_generator import RAGGenerator
 from app.vector_store_config import create_vector_store, get_storage_status
 from firebase_config import db
@@ -42,9 +32,7 @@ from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
 from services.utils import extract_stock_symbol, get_symbol_from_coin_name
 from services.crypto_utils import CRYPTO_LIST
 from services.alpha_client import get_crypto_price, get_stock_data
-from services.crypto_utils import CRYPTO_LIST
 from services.nlp_generator import generate_summary
-from firebase_config import db
 from services.img_generation_functions import (
     crear_prompt_optimizado, 
     generar_imagen_huggingface, 
@@ -52,21 +40,76 @@ from services.img_generation_functions import (
     sanitize_filename, 
     subir_imagen_a_supabase
 )
-from app.models import GenerationRequest, GenerationResponse
-from app.agents import generate_content as generate_content_agent
 from DB.supabase_client import supabase
 
 # Load environment variables
 load_dotenv()
 
+# Variables globales
+vector_store = None
+rag_generator = None
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
+
+# =============================
+# ASYNC CONTEXT MANAGER - ÚNICO
+# =============================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and cleanup application lifecycle"""
+    print("🚀 Initializing BUDDY API...")
+    
+    global vector_store, rag_generator
+    
+    # Vector database setup
+    try:
+        vector_store = create_vector_store()
+        storage_status = get_storage_status()
+        print(f"✅ Using {storage_status['current_storage']} storage")
+    except Exception as e:
+        print(f"❌ Error creating vector store: {e}")
+        print("🔄 Falling back to local storage")
+        from app.local_vector_store import SimpleHuggingFaceStore
+        vector_store = SimpleHuggingFaceStore(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            chunk_size=512,
+            chunk_overlap=50
+        )
+
+    # RAG generator setup
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if not groq_api_key:
+        print("⚠️ Warning: GROQ_API_KEY not found. RAG endpoints will not work.")
+        print("   Please set: $env:GROQ_API_KEY='your-api-key'")
+        rag_generator = None
+    else:
+        rag_generator = RAGGenerator(api_key=groq_api_key)
+        print("✅ RAG generator initialized")
+    
+    print("✅ Application startup complete")
+    
+    yield
+    
+    # Cleanup
+    print("🔄 Application shutdown")
+
+# =============================
+# FASTAPI APP - ÚNICO
+# =============================
+
 app = FastAPI(
     title="🤖 BUDDY API Unificada", 
-    description="API completa con NLP y generación de imágenes integrada",
-    version="2.0.0"
+    description="API completa con NLP, RAG y generación de imágenes integrada",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
+# =============================
+# CORS MIDDLEWARE - ÚNICO
+# =============================
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -75,65 +118,158 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# UID validation regex
-UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
+security = HTTPBearer()
 
-@asynccontextmanager
-# Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
-try:
-    vector_store = create_vector_store()
-    storage_status = get_storage_status()
-    print(f"✅ Using {storage_status['current_storage']} storage")
-except Exception as e:
-    print(f"❌ Error creating vector store: {e}")
-    print("🔄 Falling back to local storage")
-    from app.local_vector_store import SimpleHuggingFaceStore
-    vector_store = SimpleHuggingFaceStore(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        chunk_size=512,
-        chunk_overlap=50
-    )
-
-# RAG generator
-groq_api_key = os.getenv("GROQ_API_KEY")
-if not groq_api_key:
-    print("⚠️ Warning: GROQ_API_KEY not found. RAG endpoints will not work.")
-    print("   Please set: $env:GROQ_API_KEY='your-api-key'")
-    rag_generator = None
-else:
-    rag_generator = RAGGenerator(api_key=groq_api_key)
+# =============================
+# ENDPOINTS PRINCIPALES
+# =============================
 
 @app.get("/")
 def root():
     """Root endpoint for checking server status"""
     return {
-        "message": "AI Content Generator API is running!",
+        "message": "🤖 BUDDY API Unificada con RAG Científico",
         "status": "running",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "services": {
+            "nlp": "✅ Integrado",
+            "images": "✅ Integrado", 
+            "rag": "✅ Integrado",
+            "vector_db": "✅ Integrado",
+            "firebase": "✅" if db is not None else "❌ Deshabilitado",
+            "supabase": "✅" if supabase else "❌"
+        },
         "endpoints": {
             "generate": "/generate",
-            "arxiv_search_get": "/arxiv/search (GET)",
+            "arxiv_search": "/arxiv/search",
+            "vector_add": "/vector/add_articles_from_search",
+            "rag_generate": "/rag/generate",
+            "rag_compare": "/rag/compare",
             "docs": "/docs",
-            "redoc": "/redoc"
+            "health": "/health"
         }
     }
 
 @app.get("/health")
 def health_check():
-    """Server health check"""
-    return {"status": "healthy", "message": "Server is running normally"}
-
-
+    """Server health check with RAG status"""
+    api_status = {
+        "groq": "✅" if os.getenv("GROQ_API_KEY") else "❌",
+        "huggingface": "✅" if HUGGINGFACE_API_KEY else "❌",
+        "alphavantage": "✅" if os.getenv("ALPHAVANTAGE_API_KEY") else "❌"
+    }
     
-@app.post("/generate", response_model=GenerationResponse)
-def generate(req: GenerationRequest, provider: str = Query("groq", enum=["groq", "ollama"])):
-    try:
-        content = generate_content(req.platform, req.topic, provider=provider)
-        return GenerationResponse(content=content)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    service_status = {
+        "firebase": "✅" if db is not None else "❌",
+        "supabase": "✅" if supabase else "❌",
+        "vector_store": "✅" if vector_store else "❌",
+        "rag_generator": "✅" if rag_generator else "❌"
+    }
+    
+    return {
+        "status": "healthy", 
+        "message": "🤖 BUDDY API funcionando correctamente",
+        "timestamp": datetime.now().isoformat(),
+        "apis": api_status,
+        "services": service_status,
+        "rag_status": {
+            "vector_documents": len(vector_store.documents) if vector_store and hasattr(vector_store, 'documents') else 0,
+            "ready": vector_store is not None and rag_generator is not None
+        }
+    }
 
-# POST endpoint removed - using GET only for simplicity
+# =============================
+# ENDPOINT GENERATE - ÚNICO
+# =============================
+
+@app.post("/generate")
+async def generate_content_endpoint(request: dict):
+    """
+    Endpoint único para generar contenido de texto
+    Compatible con SimpleGenerationRequest y dict
+    """
+    try:
+        # Extraer datos del request (dict o SimpleGenerationRequest)
+        if isinstance(request, dict):
+            platform = request.get('platform', 'twitter')
+            topic = request.get('topic', '')
+            language = request.get('language', 'es')
+            uid = request.get('uid', None)
+        else:
+            platform = getattr(request, 'platform', 'twitter')
+            topic = getattr(request, 'topic', '')
+            language = getattr(request, 'language', 'es')
+            uid = getattr(request, 'uid', None)
+        
+        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
+        
+        # Validaciones básicas
+        if not topic or not topic.strip():
+            raise HTTPException(status_code=400, detail="Topic es requerido")
+        
+        if not platform:
+            raise HTTPException(status_code=400, detail="Platform es requerida")
+        
+        # Obtener contexto del usuario si está disponible
+        user_bio = ""
+        if uid and db is not None:
+            try:
+                if UID_REGEX.match(uid):
+                    doc_ref = db.collection("users").document(uid)
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        user_data = doc.to_dict()
+                        user_bio = user_data.get("bio", "")
+            except Exception as e:
+                print(f"⚠️ Error accediendo a Firebase: {e}")
+        
+        # Agregar contexto del usuario si existe
+        topic_with_context = topic
+        if user_bio:
+            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {topic}"
+        
+        start_time = time.time()
+        
+        # Generar contenido usando el sistema de agentes
+        content = generate_content(
+            platform=platform,
+            topic=topic_with_context,
+            language=language,
+            provider="groq"
+        )
+        
+        end_time = time.time()
+        execution_time = end_time - start_time
+
+        # Guardar en trazabilidad si hay usuario
+        if uid and supabase:
+            try:
+                data = {
+                    "User_id": uid,
+                    "used_model": "groq",
+                    "Prompt": topic,
+                    "Language": language,
+                    "Output": content,
+                    "Execution_time": execution_time
+                }
+                supabase.table('Trazabilidad').insert(data).execute()
+                print("✅ Guardado en trazabilidad")
+            except Exception as e:
+                print(f"⚠️ Error guardando en trazabilidad: {e}")
+        
+        return {"content": content}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"💥 Error generando contenido: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
+
+# =============================
+# ENDPOINTS RAG CIENTÍFICO - MANTENIENDO LOS DE TU COMPAÑERA
+# =============================
 
 @app.get("/arxiv/search")
 def search_arxiv_papers_get(
@@ -142,23 +278,10 @@ def search_arxiv_papers_get(
     download_pdfs: bool = Query(True, description="Whether to download PDF files"),
     extract_text: bool = Query(True, description="Whether to extract full text from PDF"),
     days_back: int = Query(365, ge=1, le=3650, description="Number of days back for search"),
-    categories: str = Query(None, description="arXiv categories separated by comma (e.g., cs.AI,quant-ph)")
+    categories: str = Query(None, description="arXiv categories separated by comma")
 ):
-    """
-    GET endpoint for searching scientific articles in arXiv
-    
-    Args:
-        topic: Search topic
-        max_results: Maximum number of results (1-50)
-        download_pdfs: Whether to download PDF files
-        extract_text: Whether to extract full text from PDF
-        days_back: Number of days back for search
-        categories: arXiv categories separated by comma
-        
-    Returns:
-        List of found articles with metadata
-    """
-    print(f"🔍 GET request for article search: topic='{topic}', count={max_results}")
+    """Búsqueda de artículos científicos en arXiv"""
+    print(f"🔍 Búsqueda de artículos: topic='{topic}', count={max_results}")
     
     try:
         # Parse categories if specified
@@ -180,63 +303,30 @@ def search_arxiv_papers_get(
         )
         
         print(f"✅ Found {results['total_found']} articles for topic '{topic}'")
-        
-        # Debug: Print found articles
-        if 'documents' in results:
-            for i, article in enumerate(results['documents']):
-                print(f"  Found Article {i+1}:")
-                print(f"    Title: {article.get('title', 'MISSING')}")
-                print(f"    ArXiv ID: {article.get('arxiv_id', 'MISSING')}")
-                print(f"    Authors: {article.get('authors', 'MISSING')}")
-                print(f"    Full text length: {len(article.get('full_text', ''))}")
-        
         return results
         
     except Exception as e:
         print(f"❌ Error searching articles: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error searching articles: {str(e)}")
 
-
-
 @app.post("/vector/add_articles_from_search")
 def add_articles_from_search(search_result: Dict):
-    """
-    Adds articles from search result to vector database
-    
-    Args:
-        search_result: Search result with documents field
-        
-    Returns:
-        Processing result
-    """
-    print(f"🔍 Adding articles from search result...")
-    print(f"🔍 Search result keys: {list(search_result.keys())}")
-    
-    # Extract documents from search result
-    documents = search_result.get('documents', [])
-    if not documents:
-        raise HTTPException(status_code=400, detail="No documents found in search result")
-    
-    print(f"🔍 Found {len(documents)} documents to add")
-    
-    # Debug: Print document details
-    for i, doc in enumerate(documents):
-        print(f"  Document {i+1}:")
-        print(f"    Type: {type(doc)}")
-        print(f"    Keys: {list(doc.keys()) if isinstance(doc, dict) else 'NOT A DICT'}")
-        print(f"    Title: {doc.get('title', 'MISSING')}")
-        print(f"    ArXiv ID: {doc.get('arxiv_id', 'MISSING')}")
-        print(f"    Authors: {doc.get('authors', 'MISSING')}")
-        print(f"    Full text length: {len(doc.get('full_text', ''))}")
+    """Agregar artículos a la base de datos vectorial"""
+    print(f"📥 Adding articles from search result...")
     
     try:
+        documents = search_result.get('documents', [])
+        if not documents:
+            raise HTTPException(status_code=400, detail="No documents found in search result")
+        
+        print(f"📥 Found {len(documents)} documents to add")
+        
         # Clean and validate data
         cleaned_articles = []
         for doc in documents:
             cleaned_article = {}
             for key, value in doc.items():
                 if isinstance(value, str):
-                    # Limit text size and clean special characters
                     if key == 'full_text':
                         cleaned_article[key] = value[:50000]  # Limit to 50KB
                     else:
@@ -247,6 +337,7 @@ def add_articles_from_search(search_result: Dict):
         
         processed = vector_store.add_documents(cleaned_articles)
         print(f"✅ Processed {processed} articles")
+        
         return {
             "search_metadata": {
                 "topic": search_result.get('topic', ''),
@@ -266,88 +357,31 @@ def add_articles_from_search(search_result: Dict):
 def search_vector_store(
     query: str = Query(..., description="Search query"),
     top_k: int = Query(5, ge=1, le=20, description="Number of results"),
-    similarity_threshold: float = Query(0.5, ge=0.0, le=1.0, description="Similarity threshold"),
-    use_hybrid_search: bool = Query(True, description="Use hybrid search (vector + keyword)"),
-    search_type: str = Query("general", enum=["general", "definitions", "concepts"], description="Type of search")
+    similarity_threshold: float = Query(0.5, ge=0.0, le=1.0, description="Similarity threshold")
 ):
-    """
-    Enhanced search articles in vector database
-    
-    Args:
-        query: Search query
-        top_k: Number of results
-        similarity_threshold: Similarity threshold
-        use_hybrid_search: Use hybrid search
-        search_type: Type of search (general, definitions, concepts)
-        
-    Returns:
-        List of found articles with relevance
-    """
-    print(f"🔍 Enhanced search in vector database: '{query}' (type: {search_type})")
+    """Buscar en la base de datos vectorial"""
+    print(f"🔍 Search in vector database: '{query}'")
     
     try:
-        # Modify query based on search type
-        if search_type == "definitions":
-            modified_query = f"definition explanation what is {query}"
-            similarity_threshold = min(similarity_threshold, 0.3)  # Lower threshold for definitions
-            top_k = top_k * 2  # Get more candidates for filtering
-        elif search_type == "concepts":
-            modified_query = f"concept {query} key terms important"
-        else:
-            modified_query = query
-        
         results = vector_store.search(
-            query=modified_query,
+            query=query,
             top_k=top_k,
-            use_hybrid=use_hybrid_search,
-            min_score=similarity_threshold  # Use similarity_threshold as min_score
+            min_score=similarity_threshold
         )
-        
-        # Post-process results based on search type
-        if search_type == "definitions":
-            # Filter for results that likely contain definitions
-            filtered_results = []
-            for result in results:
-                text = result.get('text_snippet', '').lower()
-                has_definition = any(term in text for term in [
-                    'is ', 'are ', 'means ', 'refers to', 'defined as', 
-                    'definition', 'explanation', 'refers to'
-                ])
-                
-                if has_definition or result.get('has_definitions', False):
-                    filtered_results.append(result)
-            results = filtered_results[:top_k // 2]  # Return original top_k
-        
-        elif search_type == "concepts":
-            # Enhance results with concept analysis
-            for result in results:
-                text = result.get('text_snippet', '')
-                # Extract potential concepts from text
-                concepts = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', text)
-                concepts = [c for c in concepts if len(c) > 3 and c.lower() not in ['title', 'authors', 'abstract', 'full text']]
-                result['extracted_concepts'] = concepts[:5]  # Top 5 concepts
         
         print(f"✅ Found {len(results)} relevant fragments")
         return {
             "query": query,
             "total_found": len(results),
-            "search_type": f"enhanced_{search_type}",
             "results": results
         }
     except Exception as e:
         print(f"❌ Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
-
-
 @app.get("/vector/statistics")
 def get_vector_store_statistics():
-    """
-    Returns vector database statistics and storage configuration
-    
-    Returns:
-        Vector database statistics and storage config
-    """
+    """Estadísticas de la base de datos vectorial"""
     print("📊 Getting vector database statistics...")
     
     try:
@@ -362,27 +396,6 @@ def get_vector_store_statistics():
         print(f"❌ Error getting statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting statistics: {str(e)}")
 
-@app.delete("/vector/clear")
-def clear_vector_store():
-    """
-    Clears vector database
-    
-    Returns:
-        Clear result
-    """
-    print("🗑️ Clearing vector database...")
-    
-    try:
-        vector_store.clear()
-        print("✅ Vector database cleared")
-        return {"message": "Vector database cleared", "status": "success"}
-    except Exception as e:
-        print(f"❌ Clear error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Clear error: {str(e)}")
-
-
-# Combined search and vectorize endpoint removed - using separate endpoints instead
-
 @app.post("/rag/generate")
 def generate_rag_response(
     query: str = Query(..., description="User query for RAG generation"),
@@ -391,31 +404,18 @@ def generate_rag_response(
     max_tokens: int = Query(1024, ge=100, le=4096, description="Maximum tokens to generate"),
     stream: bool = Query(False, description="Whether to stream the response")
 ):
-    """
-    Generate RAG response using retrieved documents and Groq LLM
-    
-    Args:
-        query: User's question
-        top_k: Number of documents to retrieve
-        temperature: Generation temperature
-        max_tokens: Maximum tokens to generate
-        stream: Whether to stream response
-        
-    Returns:
-        RAG response with source documents
-    """
+    """Generar respuesta RAG usando documentos recuperados"""
     print(f"🤖 RAG generation for query: '{query}'")
     
     if not rag_generator:
-        raise HTTPException(status_code=500, detail="RAG generator not initialized. Please set GROQ_API_KEY environment variable.")
+        raise HTTPException(status_code=500, detail="RAG generator not initialized. Please set GROQ_API_KEY.")
     
     try:
-        # Step 1: Search in vector database
-        print("🔍 Searching vector database...")
+        # Search in vector database
         retrieved_docs = vector_store.search(
             query=query,
             top_k=top_k,
-            min_score=0.1  # Lower threshold for search
+            min_score=0.1
         )
         
         if not retrieved_docs:
@@ -430,8 +430,7 @@ def generate_rag_response(
         
         print(f"📚 Retrieved {len(retrieved_docs)} relevant documents")
         
-        # Step 2: Generate RAG response
-        print("🧠 Generating RAG response with Groq...")
+        # Generate RAG response
         response = rag_generator.generate_rag_response(
             query=query,
             retrieved_documents=retrieved_docs,
@@ -440,16 +439,8 @@ def generate_rag_response(
             stream=stream
         )
         
-        # Add metadata
         response["documents_retrieved"] = len(retrieved_docs)
         response["source_documents"] = retrieved_docs
-        
-        print(f"✅ RAG response generated successfully")
-        
-        # Add document analysis
-        if rag_generator:
-            analysis = rag_generator.analyze_retrieved_documents(query, retrieved_docs)
-            response["document_analysis"] = analysis
         
         return response
         
@@ -464,30 +455,18 @@ def compare_rag_vs_simple(
     temperature: float = Query(0.7, ge=0.0, le=2.0, description="Generation temperature"),
     max_tokens: int = Query(1024, ge=100, le=4096, description="Maximum tokens to generate")
 ):
-    """
-    Compare RAG response vs simple LLM response
-    
-    Args:
-        query: User's question
-        top_k: Number of documents to retrieve
-        temperature: Generation temperature
-        max_tokens: Maximum tokens to generate
-        
-    Returns:
-        Comparison of both responses
-    """
-    print(f"🔄 Comparing RAG vs Simple for query: '{query}'")
+    """Comparar respuesta RAG vs respuesta simple"""
+    print(f"⚖️ Comparing RAG vs Simple for query: '{query}'")
     
     if not rag_generator:
-        raise HTTPException(status_code=500, detail="RAG generator not initialized. Please set GROQ_API_KEY environment variable.")
+        raise HTTPException(status_code=500, detail="RAG generator not initialized.")
     
     try:
         # Get RAG response
-        print("🤖 Generating RAG response...")
         retrieved_docs = vector_store.search(
             query=query,
             top_k=top_k,
-            min_score=0.1  # Lower threshold for search
+            min_score=0.1
         )
         
         rag_response = rag_generator.generate_rag_response(
@@ -499,7 +478,6 @@ def compare_rag_vs_simple(
         )
         
         # Get simple response
-        print("🧠 Generating simple response...")
         simple_response = rag_generator.generate_simple_response(
             query=query,
             temperature=temperature,
@@ -530,143 +508,9 @@ def compare_rag_vs_simple(
         print(f"❌ Comparison error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Comparison error: {str(e)}")
 
-@app.get("/rag/analyze_documents")
-def analyze_retrieved_documents(
-    query: str = Query(..., description="Query to analyze documents for"),
-    top_k: int = Query(5, ge=1, le=10, description="Number of documents to retrieve"),
-    similarity_threshold: float = Query(0.5, ge=0.0, le=1.0, description="Similarity threshold")
-):
-    """
-    Analyze retrieved documents for a query
-    
-    Args:
-        query: User's question
-        top_k: Number of documents to retrieve
-        similarity_threshold: Similarity threshold
-        
-    Returns:
-        Analysis of retrieved documents
-    """
-    print(f"🔍 Analyzing documents for query: '{query}'")
-    
-    if not rag_generator:
-        raise HTTPException(status_code=500, detail="RAG generator not initialized. Please set GROQ_API_KEY environment variable.")
-    
-    try:
-        # Search in vector database
-        print("🔍 Searching vector database...")
-        retrieved_docs = vector_store.search(
-            query=query,
-            top_k=top_k,
-            min_score=similarity_threshold
-        )
-        
-        if not retrieved_docs:
-            return {
-                "query": query,
-                "message": "No documents found",
-                "analysis": {
-                    "total_documents": 0,
-                    "has_relevant_content": False,
-                    "topics_found": []
-                }
-            }
-        
-        print(f"📚 Retrieved {len(retrieved_docs)} documents for analysis")
-        
-        # Analyze documents
-        analysis = rag_generator.analyze_retrieved_documents(query, retrieved_docs)
-        
-        return {
-            "query": query,
-            "total_documents_retrieved": len(retrieved_docs),
-            "analysis": analysis
-        }
-        
-    except Exception as e:
-        print(f"❌ Document analysis error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Document analysis error: {str(e)}")
-
-security = HTTPBearer()
-
-# Variables globales
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
-
-@app.post("/generate")
-async def generate_simple(req: SimpleGenerationRequest):
-    """
-    Endpoint simplificado para generar contenido de texto
-    Compatible con el frontend TextGenerator.js
-    """
-    try:
-        print(f"🎯 Solicitud de generación: {req.platform} | {req.topic} | {req.language}")
-        
-        # Validaciones básicas
-        if not req.topic or not req.topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not req.platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Obtener contexto del usuario si está disponible
-        user_bio = ""
-        if req.uid and db is not None:
-            try:
-                if UID_REGEX.match(req.uid):
-                    doc_ref = db.collection("users").document(req.uid)
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        user_data = doc.to_dict()
-                        user_bio = user_data.get("bio", "")
-            except Exception as e:
-                print(f"⚠️ Error accediendo a Firebase: {e}")
-        
-        # Agregar contexto del usuario si existe
-        topic_with_context = req.topic
-        if user_bio:
-            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {req.topic}"
-        
-        start_time = time.time()
-        # Generar contenido usando el sistema de agentes
-        content = generate_content(
-            platform=req.platform,
-            topic=topic_with_context,
-            language=req.language,
-            provider="groq"
-        )
-        
-        end_time = time.time() # Registrar el tiempo de finalización
-        execution_time = end_time - start_time # Calcular el tiempo de ejecución
-
-        # Guardar en trazabilidad si hay usuario
-        if req.uid and supabase:
-            try:
-                data = {
-                    "User_id": req.uid,
-                    "used_model": "groq",
-                    "Prompt": req.topic,  # Prompt original
-                    "Language": req.language,
-                    "Output": content,
-                    "Execution_time": execution_time
-                }
-                print(f"DEBUG: Data to be inserted: {data}")
-                supabase.table('Trazabilidad').insert(data).execute()
-                print("✅ Guardado en trazabilidad")
-            except Exception as e:
-                print(f"⚠️ Error guardando en trazabilidad: {e}")
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
+# =============================
+# ENDPOINTS EXISTENTES
+# =============================
 
 @app.post("/news-nlp")
 def generate_news_nlp(req: PromptRequest):
@@ -715,10 +559,8 @@ def generate_news_nlp(req: PromptRequest):
 
         resumen = generate_summary(full_context, language=req.language)
         
-        # Calcular tiempo de ejecución
         execution_time = round(time_now() - start_time, 2)
 
-        # Guardar en trazabilidad
         if supabase:
             try:
                 supabase.table("Trazabilidad").insert({
@@ -739,56 +581,15 @@ def generate_news_nlp(req: PromptRequest):
         print(f"Error en news-nlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate")
-async def generate_simple_content(request: dict):
-    """
-    Endpoint simplificado para generar contenido de texto
-    Compatible con el frontend TextGenerator.js
-    """
-    try:
-        platform = request.get('platform', 'twitter')
-        topic = request.get('topic', '')
-        language = request.get('language', 'es')
-        
-        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
-        
-        # Validaciones básicas
-        if not topic or not topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Generar contenido usando el sistema de agentes
-        content = generate_content_agent(
-            platform=platform,
-            topic=topic,
-            language=language,
-            provider="groq"
-        )
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
     """Genera imagen con manejo robusto de errores y fallbacks"""
     try:
         print(f"🎯 Nueva solicitud de imagen: {req.tema}")
-        print(f"👥 Audiencia: {req.audiencia} | 🎨 Estilo: {req.estilo} | 🌈 Colores: {req.colores}")
         
-        # Crear prompt optimizado
         prompt_optimizado = crear_prompt_optimizado(req)
         print(f"✨ Prompt optimizado: {prompt_optimizado}")
         
-        # Intentar generar imagen
         img_bytes = None
         error_message = None
         
@@ -798,7 +599,6 @@ async def generate_image(req: ImagenRequest):
             error_message = e.detail
             print(f"❌ Error en Hugging Face: {error_message}")
             
-            # Intentar generar imagen placeholder
             img_bytes = generar_imagen_fallback(prompt_optimizado)
             if img_bytes is None:
                 raise HTTPException(
@@ -806,22 +606,16 @@ async def generate_image(req: ImagenRequest):
                     detail=f"Servicio de imágenes no disponible: {error_message}"
                 )
         
-        # Convertir a base64
         img_b64 = base64.b64encode(img_bytes).decode('utf-8')
         
-        # Crear nombre único con sanitización
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         tema_safe = sanitize_filename(req.tema)
         nombre_archivo = f"{timestamp}_{tema_safe}.png"
         
-        print(f"📁 Nombre de archivo: {nombre_archivo}")
-        
-        # Subir a Supabase (solo si no es placeholder)
         url_supabase = None
         if error_message is None:
             url_supabase = subir_imagen_a_supabase(nombre_archivo, img_bytes)
         
-        # Preparar respuesta
         response = {
             "filename": nombre_archivo,
             "imagen": img_b64,
@@ -838,174 +632,23 @@ async def generate_image(req: ImagenRequest):
         if url_supabase:
             response["url_supabase"] = url_supabase
         
-        print(f"🎉 Respuesta preparada: {nombre_archivo}")
         return response
         
     except Exception as e:
         print(f"💥 Error crítico generando imagen: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error crítico en generación de imagen: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error crítico en generación de imagen: {str(e)}")
 
 # =============================
-# ENDPOINTS DE TRAZABILIDAD
+# CORS OPTIONS
 # =============================
 
-@app.post("/api/trazabilidad")
-async def create_trazabilidad(
-    user_id: str,
-    used_model: str,
-    prompt: str,
-    language: str,
-    output: str,
-    execution_time: float
-):
-    try:
-        data = {
-            "user_id": user_id,
-            "used_model": used_model,
-            "prompt": prompt,
-            "language": language,
-            "output": output,
-            "execution_time": execution_time
-        }
-        
-        response = supabase.table('trazabilidad').insert(data).execute()
-        return response.data[0]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.options("/{path:path}")
+async def options_handler():
+    """Handle OPTIONS requests for CORS"""
+    return {"message": "OK"}
 
-@app.get("/api/trazabilidad/{user_id}")
-async def get_trazabilidad_by_user(user_id: str):
-    try:
-        response = supabase.table('trazabilidad').select('*').eq('user_id', user_id).execute()
-        return response.data
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.put("/api/trazabilidad/{id}")
-async def update_trazabilidad(
-    id: str,
-    used_model: str = None,
-    prompt: str = None,
-    language: str = None,
-    output: str = None,
-    execution_time: float = None
-):
-    try:
-        updates = {}
-        if used_model: updates["used_model"] = used_model
-        if prompt: updates["prompt"] = prompt
-        if language: updates["language"] = language
-        if output: updates["output"] = output
-        if execution_time: updates["execution_time"] = execution_time
-        
-        response = supabase.table('trazabilidad').update(updates).eq('id', id).execute()
-        return response.data[0]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.delete("/api/trazabilidad/{id}")
-async def delete_trazabilidad(id: str):
-    try:
-        response = supabase.table('trazabilidad').delete().eq('id', id).execute()
-        return {"message": "Registro de trazabilidad eliminado exitosamente"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# =============================
-# ENDPOINTS DE INFORMACIÓN
-# =============================
-
-@app.get("/")
-def read_root():
-    return {
-        "message": "🤖 BUDDY API Unificada", 
-        "version": "2.0.0",
-        "status": "running",
-        "architecture": "Servidor unificado",
-        "services": {
-            "nlp": "✅ Integrado",
-            "images": "✅ Integrado", 
-            "firebase": "✅" if db is not None else "❌ Deshabilitado",
-            "supabase": "✅" if supabase else "❌"
-        },
-        "apis": {
-            "groq": "✅" if os.getenv("GROQ_API_KEY") else "❌",
-            "huggingface": "✅" if HUGGINGFACE_API_KEY else "❌",
-            "alphavantage": "✅" if os.getenv("ALPHAVANTAGE_API_KEY") else "❌"
-        },
-        "endpoints": {
-            "text": ["POST /generate", "POST /news-nlp"],
-            "images": ["POST /generate-image"],
-            "trazabilidad": ["POST /api/trazabilidad", "GET /api/trazabilidad/{user_id}"],
-            "info": ["GET /", "GET /health"]
-        }
-    }
-
-@app.get("/health")
-def health_check():
-    """Health check completo"""
-    
-    # Verificar APIs
-    api_status = {}
-    api_status["groq"] = "✅" if os.getenv("GROQ_API_KEY") else "❌"
-    api_status["huggingface"] = "✅" if HUGGINGFACE_API_KEY else "❌" 
-    api_status["alphavantage"] = "✅" if os.getenv("ALPHAVANTAGE_API_KEY") else "❌"
-    
-    # Verificar servicios
-    service_status = {}
-    service_status["firebase"] = "✅" if db is not None else "❌"
-    service_status["supabase"] = "✅" if supabase else "❌"
-    
-    return {
-        "status": "healthy", 
-        "message": "🤖 BUDDY API Unificada funcionando correctamente",
-        "timestamp": datetime.now().isoformat(),
-        "apis": api_status,
-        "services": service_status,
-        "architecture": "unified_server",
-        "cors": "configurado para localhost:3000"
-    }
-
-
-#@app.get("/stats")
-#def get_stats():
-#    """Estadísticas del sistema"""
-#    try:
-#        # Contar imágenes generadas
-#        num_images = 0
-#        if os.path.exists(IMAGENES_PATH):
-#            num_images = len([f for f in os.listdir(IMAGENES_PATH) if f.endswith('.png')])
-#        
-#        return {
-#            "images_generated": num_images,
-#            "storage_path": IMAGENES_PATH,
-#            "services_active": {
-#                "nlp": True,
-#                "images": True,
-#                "firebase": db is not None,
-#                "supabase": supabase is not None
-#            }
-#        }
-#    except Exception as e:
-#        raise HTTPException(status_code=500, detail=str(e))
-    
-    
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting AI Co...")
+    print("🚀 Starting BUDDY API with RAG support...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-# =============================
-# ENDPOINT DE PRUEBA CORS
-# =============================
-
-@app.options("/generate")
-async def options_generate():
-    """Handle OPTIONS request for CORS preflight"""
-    return {"message": "OK"}
 
