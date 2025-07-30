@@ -1,3 +1,4 @@
+
 # Standard library imports
 import logging
 import os
@@ -9,6 +10,7 @@ from typing import List, Dict
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 import os
 from datetime import datetime
@@ -21,6 +23,7 @@ import re
 import time
 import random
 from requests.exceptions import ReadTimeout, ConnectionError, RequestException
+from time import time as time_now
 
 # Importaciones existentes del proyecto
 
@@ -35,50 +38,40 @@ from app.models import (
 from app.rag_generator import RAGGenerator
 from app.vector_store_config import create_vector_store, get_storage_status
 from firebase_config import db
-from models.prompt import PromptRequest
+from models.prompt import PromptRequest, ImagenRequest, SimpleGenerationRequest
+from services.utils import extract_stock_symbol, get_symbol_from_coin_name
+from services.crypto_utils import CRYPTO_LIST
 from services.alpha_client import get_crypto_price, get_stock_data
 from services.crypto_utils import CRYPTO_LIST
 from services.nlp_generator import generate_summary
-from models.prompt import PromptRequest, ImagenRequest
-from services.utils import extract_stock_symbol, get_symbol_from_coin_name
 from firebase_config import db
-from services.img_generation_functions import crear_prompt_optimizado, generar_imagen_huggingface, generar_imagen_fallback, sanitize_filename, subir_imagen_a_supabase
+from services.img_generation_functions import (
+    crear_prompt_optimizado, 
+    generar_imagen_huggingface, 
+    generar_imagen_fallback, 
+    sanitize_filename, 
+    subir_imagen_a_supabase
+)
+from app.models import GenerationRequest, GenerationResponse
+from app.agents import generate_content as generate_content_agent
+from DB.supabase_client import supabase
 
 # Load environment variables
 load_dotenv()
 
-# APIs
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-
-# Supabase
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-if SUPABASE_URL and SUPABASE_KEY:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("✅ Supabase conectado")
-else:
-    supabase = None
-    print("⚠️ Supabase no configurado")
-
-# Directorio para imágenes
-#IMAGENES_PATH = os.path.join(os.path.dirname(__file__), "imagenes")
-#os.makedirs(IMAGENES_PATH, exist_ok=True)
-
-# FastAPI App
 app = FastAPI(
     title="🤖 BUDDY API Unificada", 
     description="API completa con NLP y generación de imágenes integrada",
     version="2.0.0"
 )
 
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -86,38 +79,6 @@ app.add_middleware(
 UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    print("🚀 FastAPI application starting...")
-    print("📚 Available endpoints:")
-    print("   🔧 Core endpoints:")
-    print("     - GET / - Root endpoint")
-    print("     - GET /health - Health check")
-    print("   📄 Content generation:")
-    print("     - POST /generate - Content generation with Groq/Ollama")
-    print("   🔍 ArXiv search:")
-    print("     - GET /arxiv/search - Search articles on ArXiv")
-    print("   🗄️ Vector storage:")
-    print("     - POST /vector/add_articles_from_search - Add articles to vector DB")
-    print("     - GET /vector/search - Search in vector database")
-    print("     - GET /vector/statistics - Get vector DB statistics & config")
-    print("     - DELETE /vector/clear - Clear vector database")
-    print("   🤖 RAG system:")
-    print("     - POST /rag/generate - Generate RAG response")
-    print("     - GET /rag/compare - Compare RAG vs simple generation")
-    print("     - GET /rag/analyze_documents - Analyze retrieved documents")
-    print("   📊 Storage types supported:")
-    print("     - Local file-based (default)")
-    print("     - Qdrant local (Docker)")
-    print("     - Qdrant cloud (cloud.qdrant.io)")
-    print("📖 Swagger documentation: http://localhost:8001/docs")
-    print("✅ Application ready to work!")
-    
-    yield
-    
-    # Shutdown
-    print("🛑 Application stopping...")
-
 # Vector database (configurable storage - local, qdrant_local, or qdrant_cloud)
 try:
     vector_store = create_vector_store()
@@ -626,72 +587,199 @@ def analyze_retrieved_documents(
         print(f"❌ Document analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Document analysis error: {str(e)}")
 
+security = HTTPBearer()
+
+# Variables globales
+HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+UID_REGEX = re.compile(r"^[a-zA-Z0-9_-]{6,128}$")
+
+@app.post("/generate")
+async def generate_simple(req: SimpleGenerationRequest):
+    """
+    Endpoint simplificado para generar contenido de texto
+    Compatible con el frontend TextGenerator.js
+    """
+    try:
+        print(f"🎯 Solicitud de generación: {req.platform} | {req.topic} | {req.language}")
+        
+        # Validaciones básicas
+        if not req.topic or not req.topic.strip():
+            raise HTTPException(status_code=400, detail="Topic es requerido")
+        
+        if not req.platform:
+            raise HTTPException(status_code=400, detail="Platform es requerida")
+        
+        # Obtener contexto del usuario si está disponible
+        user_bio = ""
+        if req.uid and db is not None:
+            try:
+                if UID_REGEX.match(req.uid):
+                    doc_ref = db.collection("users").document(req.uid)
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        user_data = doc.to_dict()
+                        user_bio = user_data.get("bio", "")
+            except Exception as e:
+                print(f"⚠️ Error accediendo a Firebase: {e}")
+        
+        # Agregar contexto del usuario si existe
+        topic_with_context = req.topic
+        if user_bio:
+            topic_with_context = f"Contexto del usuario: {user_bio}\n\nTema: {req.topic}"
+        
+        start_time = time.time()
+        # Generar contenido usando el sistema de agentes
+        content = generate_content(
+            platform=req.platform,
+            topic=topic_with_context,
+            language=req.language,
+            provider="groq"
+        )
+        
+        end_time = time.time() # Registrar el tiempo de finalización
+        execution_time = end_time - start_time # Calcular el tiempo de ejecución
+
+        # Guardar en trazabilidad si hay usuario
+        if req.uid and supabase:
+            try:
+                data = {
+                    "User_id": req.uid,
+                    "used_model": "groq",
+                    "Prompt": req.topic,  # Prompt original
+                    "Language": req.language,
+                    "Output": content,
+                    "Execution_time": execution_time
+                }
+                print(f"DEBUG: Data to be inserted: {data}")
+                supabase.table('Trazabilidad').insert(data).execute()
+                print("✅ Guardado en trazabilidad")
+            except Exception as e:
+                print(f"⚠️ Error guardando en trazabilidad: {e}")
+        
+        return {"content": content}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"💥 Error generando contenido: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 
 @app.post("/news-nlp")
-def generate(req: PromptRequest):
+def generate_news_nlp(req: PromptRequest):
     """Endpoint para generar resúmenes de noticias financieras"""
-    data_chunks = []
-    user_bio = ""
+    start_time = time_now()
+    
+    try:
+        data_chunks = []
+        user_bio = ""
 
-    if req.uid and db is not None:
-        if not UID_REGEX.match(req.uid):
-            raise HTTPException(status_code=400, detail="UID inválido.")
+        if req.uid and db is not None:
+            if not UID_REGEX.match(req.uid):
+                raise HTTPException(status_code=400, detail="UID inválido.")
+            
+            try:
+                doc_ref = db.collection("users").document(req.uid)
+                doc = doc_ref.get()
+                if doc.exists:
+                    user_data = doc.to_dict()
+                    user_bio = user_data.get("bio", "")
+            except Exception as e:
+                print(f"Error accediendo a Firebase: {e}")
+
+        symbol = extract_stock_symbol(req.prompt)
+        crypto_symbol = None
+        if req.coin_name:
+            crypto_symbol = get_symbol_from_coin_name(req.coin_name)
+            if not crypto_symbol:
+                return {"response": f"Criptomoneda '{req.coin_name}' no encontrada."}
+
+        if symbol:
+            stock_data = get_stock_data(symbol)
+            if "error" not in stock_data:
+                data_chunks.append(f"Datos de la acción {symbol}: {stock_data}")
+
+        if crypto_symbol:
+            crypto_data = get_crypto_price(crypto_symbol)
+            if "error" not in crypto_data:
+                data_chunks.append(f"Precio de {req.coin_name} ({crypto_symbol}): {crypto_data}")
+
+        context = "\n".join(data_chunks) if data_chunks else req.prompt
+        if user_bio:
+            full_context = f"Contexto del usuario: {user_bio}\n\nSolicitud:\n\n{context}"
+        else:
+            full_context = context
+
+        resumen = generate_summary(full_context, language=req.language)
         
-        try:
-            doc_ref = db.collection("users").document(req.uid)
-            doc = doc_ref.get()
-            if doc.exists:
-                user_data = doc.to_dict()
-                user_bio = user_data.get("bio", "")
-        except Exception as e:
-            print(f"Error accediendo a Firebase: {e}")
+        # Calcular tiempo de ejecución
+        execution_time = round(time_now() - start_time, 2)
 
-    symbol = extract_stock_symbol(req.prompt)
-    crypto_symbol = None
-    if req.coin_name:
-        crypto_symbol = get_symbol_from_coin_name(req.coin_name)
-        if not crypto_symbol:
-            return {"response": f"Criptomoneda '{req.coin_name}' no encontrada."}
+        # Guardar en trazabilidad
+        if supabase:
+            try:
+                supabase.table("Trazabilidad").insert({
+                    "User_id": req.uid if req.uid else None,
+                    "used_model": "groq",
+                    "Prompt": req.prompt,
+                    "Language": req.language,
+                    "Output": resumen,
+                    "Execution_time": execution_time
+                }).execute()
+                print("📊 Registro de trazabilidad guardado en Supabase")
+            except Exception as e:
+                print(f"❌ Error guardando trazabilidad en Supabase: {e}")
 
-    if symbol:
-        stock_data = get_stock_data(symbol)
-        if "error" not in stock_data:
-            data_chunks.append(f"Datos de la acción {symbol}: {stock_data}")
-
-    if crypto_symbol:
-        crypto_data = get_crypto_price(crypto_symbol)
-        if "error" not in crypto_data:
-            data_chunks.append(f"Precio de {req.coin_name} ({crypto_symbol}): {crypto_data}")
-
-    context = "\n".join(data_chunks) if data_chunks else req.prompt
-    if user_bio:
-        full_context = f"Contexto del usuario: {user_bio}\n\nSolicitud:\n\n{context}"
-    else:
-        full_context = context
-
-    resumen = generate_summary(full_context, language=req.language)
-    return {"response": resumen}
+        return {"response": resumen}
+        
+    except Exception as e:
+        print(f"Error en news-nlp: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/generate")
-def generate_content(request: dict):
-    """Endpoint unificado para generar contenido"""
-    platform = request.get('platform', 'general')
-    topic = request.get('topic', '')
-    
-    if not topic:
-        raise HTTPException(status_code=400, detail="Topic is required")
-    
-    prompt = f"Create content for {platform} about: {topic}"
-    content = generate_summary(prompt, language="es")
-    
-    return {"content": content}
+async def generate_simple_content(request: dict):
+    """
+    Endpoint simplificado para generar contenido de texto
+    Compatible con el frontend TextGenerator.js
+    """
+    try:
+        platform = request.get('platform', 'twitter')
+        topic = request.get('topic', '')
+        language = request.get('language', 'es')
+        
+        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
+        
+        # Validaciones básicas
+        if not topic or not topic.strip():
+            raise HTTPException(status_code=400, detail="Topic es requerido")
+        
+        if not platform:
+            raise HTTPException(status_code=400, detail="Platform es requerida")
+        
+        # Generar contenido usando el sistema de agentes
+        content = generate_content_agent(
+            platform=platform,
+            topic=topic,
+            language=language,
+            provider="groq"
+        )
+        
+        return {"content": content}
+        
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"💥 Error generando contenido: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
-    """
-    Genera imagen con manejo robusto de errores y fallbacks
-    """
+    """Genera imagen con manejo robusto de errores y fallbacks"""
     try:
         print(f"🎯 Nueva solicitud de imagen: {req.tema}")
         print(f"👥 Audiencia: {req.audiencia} | 🎨 Estilo: {req.estilo} | 🌈 Colores: {req.colores}")
@@ -728,12 +816,6 @@ async def generate_image(req: ImagenRequest):
         
         print(f"📁 Nombre de archivo: {nombre_archivo}")
         
-        # Guardar localmente
-        #filepath_local = os.path.join(IMAGENES_PATH, nombre_archivo)
-        #with open(filepath_local, "wb") as f:
-        #    f.write(img_bytes)
-        #print(f"💾 Imagen guardada: {filepath_local}")
-
         # Subir a Supabase (solo si no es placeholder)
         url_supabase = None
         if error_message is None:
@@ -768,7 +850,75 @@ async def generate_image(req: ImagenRequest):
             detail=f"Error crítico en generación de imagen: {str(e)}"
         )
 
+# =============================
+# ENDPOINTS DE TRAZABILIDAD
+# =============================
 
+@app.post("/api/trazabilidad")
+async def create_trazabilidad(
+    user_id: str,
+    used_model: str,
+    prompt: str,
+    language: str,
+    output: str,
+    execution_time: float
+):
+    try:
+        data = {
+            "user_id": user_id,
+            "used_model": used_model,
+            "prompt": prompt,
+            "language": language,
+            "output": output,
+            "execution_time": execution_time
+        }
+        
+        response = supabase.table('trazabilidad').insert(data).execute()
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/trazabilidad/{user_id}")
+async def get_trazabilidad_by_user(user_id: str):
+    try:
+        response = supabase.table('trazabilidad').select('*').eq('user_id', user_id).execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/trazabilidad/{id}")
+async def update_trazabilidad(
+    id: str,
+    used_model: str = None,
+    prompt: str = None,
+    language: str = None,
+    output: str = None,
+    execution_time: float = None
+):
+    try:
+        updates = {}
+        if used_model: updates["used_model"] = used_model
+        if prompt: updates["prompt"] = prompt
+        if language: updates["language"] = language
+        if output: updates["output"] = output
+        if execution_time: updates["execution_time"] = execution_time
+        
+        response = supabase.table('trazabilidad').update(updates).eq('id', id).execute()
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/trazabilidad/{id}")
+async def delete_trazabilidad(id: str):
+    try:
+        response = supabase.table('trazabilidad').delete().eq('id', id).execute()
+        return {"message": "Registro de trazabilidad eliminado exitosamente"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# =============================
+# ENDPOINTS DE INFORMACIÓN
+# =============================
 
 @app.get("/")
 def read_root():
@@ -776,7 +926,7 @@ def read_root():
         "message": "🤖 BUDDY API Unificada", 
         "version": "2.0.0",
         "status": "running",
-        "architecture": "Servidor unificado - Una sola terminal",
+        "architecture": "Servidor unificado",
         "services": {
             "nlp": "✅ Integrado",
             "images": "✅ Integrado", 
@@ -789,8 +939,9 @@ def read_root():
             "alphavantage": "✅" if os.getenv("ALPHAVANTAGE_API_KEY") else "❌"
         },
         "endpoints": {
-            "nlp": ["POST /news-nlp", "POST /generate"],
-            "images": ["POST /generate-image", "GET /last-image", "GET /image-history", "GET /imagen/{nombre}"],
+            "text": ["POST /generate", "POST /news-nlp"],
+            "images": ["POST /generate-image"],
+            "trazabilidad": ["POST /api/trazabilidad", "GET /api/trazabilidad/{user_id}"],
             "info": ["GET /", "GET /health"]
         }
     }
@@ -809,7 +960,6 @@ def health_check():
     service_status = {}
     service_status["firebase"] = "✅" if db is not None else "❌"
     service_status["supabase"] = "✅" if supabase else "❌"
-    #service_status["image_storage"] = "✅" if os.path.exists(IMAGENES_PATH) else "❌"
     
     return {
         "status": "healthy", 
@@ -817,8 +967,10 @@ def health_check():
         "timestamp": datetime.now().isoformat(),
         "apis": api_status,
         "services": service_status,
-        "architecture": "unified_server"
+        "architecture": "unified_server",
+        "cors": "configurado para localhost:3000"
     }
+
 
 #@app.get("/stats")
 #def get_stats():
@@ -847,3 +999,13 @@ if __name__ == "__main__":
     import uvicorn
     print("🚀 Starting AI Co...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+# =============================
+# ENDPOINT DE PRUEBA CORS
+# =============================
+
+@app.options("/generate")
+async def options_generate():
+    """Handle OPTIONS request for CORS preflight"""
+    return {"message": "OK"}
+

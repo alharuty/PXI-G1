@@ -10,12 +10,17 @@ import {
   AiOutlineCopy,
   AiOutlineClear
 } from 'react-icons/ai';
+import { auth } from "../firebase";
 
 export default function TextGenerator() {
   const [selectedPlatform, setSelectedPlatform] = useState('twitter');
   const [prompt, setPrompt] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState('es'); // ⭐ NUEVO
   const [generatedText, setGeneratedText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // ⭐ CONFIGURACIÓN DE LA API BASE URL
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
   const platforms = [
     { id: 'twitter', name: 'Twitter', icon: AiOutlineTwitter, maxChars: 280, color: 'from-blue-400 to-blue-500' },
@@ -25,17 +30,41 @@ export default function TextGenerator() {
     { id: 'instagram', name: 'Instagram', icon: AiOutlineInstagram, maxChars: 2200, color: 'from-pink-500 to-purple-600' },
   ];
 
+  // ⭐ NUEVO: Opciones de idioma
+  const languages = [
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+    { code: 'it', name: 'Italiano', flag: '🇮🇹' },
+  ];
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/generate`, {
+      console.log('🔗 API URL:', `${API_BASE_URL}/generate`); // Debug
+      console.log('📤 Payload:', { platform: selectedPlatform, topic: prompt, language: selectedLanguage });
+      
+      const user = auth.currentUser;
+      const uid = user?.uid || null;
+      
+      const response = await axios.post(`${API_BASE_URL}/generate`, {
         platform: selectedPlatform,
         topic: prompt,
+        language: selectedLanguage, // ⭐ AGREGAR IDIOMA
+        uid: uid,
       });
+      
+      console.log('📥 Response:', response.data); // Debug
       setGeneratedText(response.data.content);
     } catch (error) {
-      console.error('Error generating text:', error);
-      setGeneratedText('Error al generar el texto. Por favor, intenta nuevamente.');
+      console.error('❌ Error generating text:', error);
+      console.error('🔍 Error details:', error.response?.data); // Debug mejorado
+      
+      if (error.response?.status === 404) {
+        setGeneratedText('❌ Error: El servidor no se encuentra disponible. Verifica que el backend esté corriendo en http://localhost:8000');
+      } else {
+        setGeneratedText('❌ Error al generar el texto. Por favor, intenta nuevamente.');
+      }
     }
     setIsGenerating(false);
   };
@@ -47,6 +76,29 @@ export default function TextGenerator() {
       <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="bg-dark-800 rounded-xl shadow-2xl p-6 border border-dark-700">
           <h1 className="text-3xl font-bold text-white mb-6">Generador de Textos</h1>
+          
+          {/* ⭐ NUEVO: Selector de idioma */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              Selecciona el idioma:
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {languages.map((language) => (
+                <button
+                  key={language.code}
+                  onClick={() => setSelectedLanguage(language.code)}
+                  className={`p-3 rounded-lg border-2 transition-all transform hover:scale-105 ${
+                    selectedLanguage === language.code
+                      ? 'border-primary-100 bg-gradient-to-br from-primary-100 to-primary-200 text-white shadow-lg'
+                      : 'border-dark-600 bg-dark-700 hover:border-primary-200 text-gray-300 hover:text-white'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{language.flag}</div>
+                  <div className="text-sm font-medium">{language.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
           
           {/* Selector de plataforma */}
           <div className="mb-6">
@@ -91,6 +143,11 @@ export default function TextGenerator() {
               className="w-full p-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-100 focus:border-transparent"
               rows="4"
             />
+          </div>
+
+          {/* ⭐ INFORMACIÓN DE DEBUG */}
+          <div className="mb-4 p-3 bg-dark-700 rounded text-xs text-gray-400">
+            🔗 API: {API_BASE_URL} | 🌐 Plataforma: {selectedPlatform} | 🗣️ Idioma: {selectedLanguage}
           </div>
 
           {/* Botón generar */}
