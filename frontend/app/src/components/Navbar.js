@@ -8,7 +8,8 @@ import {
   AiOutlineCamera, 
   AiOutlineUser,
   AiOutlineLogout,
-  AiOutlineRobot
+  AiOutlineRobot,
+  AiOutlineBook
 } from 'react-icons/ai';
 
 export default function Navbar() {
@@ -25,6 +26,7 @@ export default function Navbar() {
     { path: '/text-generator', label: 'Generar Textos', icon: AiOutlineEdit },
     { path: '/image-generator', label: 'Generar Imágenes', icon: AiOutlineCamera },
     { path: '/ai-services', label: 'Servicios IA', icon: AiOutlineRobot },
+    { path: '/scientific-rag', label: 'RAG Científico', icon: AiOutlineBook }, // ⭐ NUEVO
     { path: '/profile', label: 'Perfil', icon: AiOutlineUser },
   ];
 

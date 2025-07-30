@@ -9,7 +9,8 @@ import {
   AiOutlineHeart,
   AiOutlineGithub,
   AiOutlineMail,
-  AiOutlineTwitter
+  AiOutlineTwitter,
+  AiOutlineBook
 } from 'react-icons/ai';
 
 export default function Dashboard() {
@@ -31,6 +32,14 @@ export default function Dashboard() {
       path: "/image-generator",
       color: "bg-primary-300",
       gradient: "from-primary-300 to-primary-400"
+    },
+    {
+      title: "RAG Científico", // ⭐ NUEVO
+      description: "Búsqueda y análisis de artículos científicos con IA",
+      icon: AiOutlineBook,
+      path: "/scientific-rag",
+      color: "bg-purple-500",
+      gradient: "from-purple-500 to-purple-600"
     },
     {
       title: "Servicios IA",
