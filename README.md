@@ -26,6 +26,7 @@
 - [Demo](#-Demo)
 - [🤝 Contribución](#-contribución)
 - [📄 Licencia](#-licencia)
+- [🗒️ Articulo de Medium](#-https://medium.com/@jorge.luis.mateos.reyes/creando-buddy-una-plataforma-integral-de-ia-para-contenido-finanzas-y-ciencia-53c4af358915)
 
 ## 🎯 Descripción
 
