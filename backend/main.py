@@ -211,44 +211,6 @@ def generate_news_nlp(req: PromptRequest):
         print(f"Error en news-nlp: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate")
-async def generate_simple_content(request: dict):
-    """
-    Endpoint simplificado para generar contenido de texto
-    Compatible con el frontend TextGenerator.js
-    """
-    try:
-        platform = request.get('platform', 'twitter')
-        topic = request.get('topic', '')
-        language = request.get('language', 'es')
-        
-        print(f"🎯 Solicitud de generación: {platform} | {topic} | {language}")
-        
-        # Validaciones básicas
-        if not topic or not topic.strip():
-            raise HTTPException(status_code=400, detail="Topic es requerido")
-        
-        if not platform:
-            raise HTTPException(status_code=400, detail="Platform es requerida")
-        
-        # Generar contenido usando el sistema de agentes
-        content = generate_content_agent(
-            platform=platform,
-            topic=topic,
-            language=language,
-            provider="groq"
-        )
-        
-        return {"content": content}
-        
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        print(f"💥 Error generando contenido: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
-
 @app.post("/generate-image")
 async def generate_image(req: ImagenRequest):
     """Genera imagen con manejo robusto de errores y fallbacks"""
